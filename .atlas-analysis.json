@@ -1,0 +1,154 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "OpenAPI TypeScript",
+  "projectDescription": "OpenAPI to TypeScript codegen with production-ready SDKs, Zod schemas, TanStack Query hooks, and 20+ plugins.",
+  "theme": "palm",
+  "primaryColor": "#0ea5e9",
+  "lightColor": "#38bdf8",
+  "darkColor": "#0284c7",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/overview",
+              "configuration/input",
+              "configuration/output",
+              "configuration/parser",
+              "configuration/plugins"
+            ]
+          },
+          {
+            "group": "Core Plugins",
+            "pages": [
+              "core/typescript",
+              "core/sdk",
+              "core/schemas",
+              "core/transformers"
+            ]
+          },
+          {
+            "group": "HTTP Clients",
+            "pages": [
+              "clients/overview",
+              "clients/fetch",
+              "clients/angular",
+              "clients/axios",
+              "clients/ky",
+              "clients/next",
+              "clients/nuxt",
+              "clients/ofetch",
+              "clients/custom"
+            ]
+          },
+          {
+            "group": "Validators",
+            "pages": [
+              "validators/overview",
+              "validators/zod",
+              "validators/valibot"
+            ]
+          },
+          {
+            "group": "State Management",
+            "pages": [
+              "state-management/overview",
+              "state-management/tanstack-query",
+              "state-management/pinia-colada"
+            ]
+          },
+          {
+            "group": "Web Frameworks",
+            "pages": [
+              "frameworks/overview",
+              "frameworks/angular",
+              "frameworks/fastify"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/custom-plugins",
+              "advanced/programmatic-usage",
+              "advanced/watch-mode"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Examples",
+            "pages": [
+              "examples/overview",
+              "examples/angular",
+              "examples/react-query",
+              "examples/next-js",
+              "examples/nuxt"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Community",
+        "groups": [
+          {
+            "group": "Community",
+            "pages": [
+              "community/contributing",
+              "community/changelog",
+              "community/migration-guide"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "CLI tool for generating TypeScript clients from OpenAPI specifications",
+    "Production-ready SDKs with type safety",
+    "20+ plugins including Zod schemas and TanStack Query hooks",
+    "Support for multiple HTTP clients (Fetch, Axios, Angular, Next.js, Nuxt)",
+    "Validators integration (Zod, Valibot)",
+    "State management hooks for TanStack Query and Pinia Colada",
+    "Highly customizable plugin system",
+    "Watch mode for development",
+    "OpenAPI 2.0, 3.0, and 3.1 support"
+  ],
+  "publicApiSurface": [
+    "openapi-ts CLI command",
+    "createClient() - Programmatic client generation",
+    "defineConfig() - Configuration helper",
+    "@hey-api/typescript plugin - TypeScript type generation",
+    "@hey-api/sdk plugin - SDK generation",
+    "@hey-api/schemas plugin - JSON schema generation",
+    "@hey-api/transformers plugin - Data transformation",
+    "@hey-api/client-fetch - Fetch API client",
+    "@hey-api/client-angular - Angular HTTP client",
+    "@hey-api/client-axios - Axios client",
+    "@hey-api/client-ky - Ky client",
+    "@hey-api/client-next - Next.js client",
+    "@hey-api/client-nuxt - Nuxt client",
+    "@hey-api/client-ofetch - OFetch client",
+    "zod plugin - Zod schema validation",
+    "valibot plugin - Valibot schema validation",
+    "@tanstack/react-query plugin - React Query hooks",
+    "@tanstack/vue-query plugin - Vue Query hooks",
+    "@tanstack/angular-query-experimental plugin - Angular Query hooks",
+    "@pinia/colada plugin - Pinia Colada integration",
+    "fastify plugin - Fastify integration",
+    "@angular/common plugin - Angular common integration"
+  ]
+}
