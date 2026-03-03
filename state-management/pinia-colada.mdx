@@ -1,0 +1,567 @@
+---
+title: Pinia Colada
+description: Generate type-safe Vue composables for data fetching with Pinia Colada.
+---
+
+The Pinia Colada plugin generates fully typed query and mutation options for Vue applications using the Pinia Colada data fetching library. It provides a declarative, composable approach to managing server state in Vue.
+
+## Installation
+
+<Steps>
+  <Step title="Install Dependencies">
+    Install Pinia Colada:
+
+    ```bash
+    npm install @pinia/colada
+    ```
+  </Step>
+
+  <Step title="Configure Plugin">
+    Add the plugin to your `openapi-ts.config.ts`:
+
+    ```typescript
+    import { defineConfig } from '@hey-api/openapi-ts';
+
+    export default defineConfig({
+      input: 'https://api.example.com/openapi.json',
+      output: {
+        path: './src/client',
+      },
+      plugins: [
+        '@hey-api/client-fetch',
+        '@hey-api/sdk',
+        '@hey-api/typescript',
+        '@pinia/colada',
+      ],
+    });
+    ```
+  </Step>
+
+  <Step title="Generate Client">
+    Run the generator:
+
+    ```bash
+    npx @hey-api/openapi-ts
+    ```
+  </Step>
+</Steps>
+
+## Generated Code
+
+The plugin generates the following artifacts:
+
+### Query Options (GET operations)
+
+For GET operations, query options wrapped in `defineQueryOptions` are generated:
+
+```typescript packages/openapi-ts/src/plugins/@pinia/colada/queryOptions.ts
+export const findPetsByStatusQuery = defineQueryOptions(
+  (options: Options<FindPetsByStatusData>) => ({
+    key: createQueryKey('findPetsByStatus', options),
+    query: async (context) => {
+      const { data } = await findPetsByStatus({
+        ...options,
+        ...context,
+        throwOnError: true,
+      });
+      return data;
+    },
+  }),
+);
+```
+
+### Mutation Options (POST/PUT/DELETE operations)
+
+For mutations, mutation options are generated:
+
+```typescript packages/openapi-ts/src/plugins/@pinia/colada/mutationOptions.ts
+export const addPetMutation = (
+  options?: Partial<Options<AddPetData>>,
+): UseMutationOptions<AddPetResponse, Options<AddPetData>, Error> => ({
+  mutation: async (vars) => {
+    const { data } = await addPet({
+      ...options,
+      ...vars,
+      throwOnError: true,
+    });
+    return data;
+  },
+});
+```
+
+### Query Keys
+
+Query key functions are generated for cache management:
+
+```typescript
+export const getPetByIdQueryKey = (options: Options<GetPetByIdData>) =>
+  createQueryKey('getPetById', options);
+```
+
+Query keys can also be disabled if you prefer using the inline key generation:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@pinia/colada',
+      queryKeys: false, // Disable separate query key exports
+    },
+  ],
+});
+```
+
+## Configuration
+
+### Query Options
+
+Configure query options generation:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@pinia/colada',
+      queryOptions: {
+        // Naming pattern (default: '{{name}}Query')
+        name: '{{name}}QueryOptions',
+        // Enable/disable generation (default: true)
+        enabled: true,
+        // Add custom metadata
+        meta: (operation) => ({
+          operationId: operation.id,
+          tags: operation.tags,
+        }),
+      },
+    },
+  ],
+});
+```
+
+### Mutation Options
+
+Configure mutation options generation:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@pinia/colada',
+      mutationOptions: {
+        // Naming pattern (default: '{{name}}Mutation')
+        name: '{{name}}MutationOptions',
+        // Enable/disable generation (default: true)
+        enabled: true,
+        // Add custom metadata
+        meta: (operation) => ({
+          invalidatesTags: operation.tags,
+        }),
+      },
+    },
+  ],
+});
+```
+
+### Query Keys
+
+Configure query key generation:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@pinia/colada',
+      queryKeys: {
+        // Naming pattern (default: '{{name}}QueryKey')
+        name: '{{name}}Key',
+        // Enable/disable generation (default: true)
+        enabled: true,
+        // Include operation tags in keys for better cache invalidation
+        tags: true,
+      },
+    },
+  ],
+});
+```
+
+### Casing Convention
+
+Set the casing convention for all generated names:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@pinia/colada',
+      // Options: 'camelCase', 'PascalCase', 'snake_case', 'SCREAMING_SNAKE_CASE'
+      case: 'camelCase', // default
+    },
+  ],
+});
+```
+
+## Usage Examples
+
+### Basic Query
+
+```vue examples/openapi-ts-pinia-colada/src/views/PiniaColadaExample.vue
+<script setup lang="ts">
+import { useQuery } from '@pinia/colada';
+import { getPetByIdQuery } from '@/client/@pinia/colada.gen';
+import { ref } from 'vue';
+
+const petId = ref<number>(1);
+
+const { data: pet, error, isLoading } = useQuery(() => ({
+  ...getPetByIdQuery({
+    path: {
+      petId: petId.value,
+    },
+  }),
+  enabled: petId.value !== undefined,
+}));
+</script>
+
+<template>
+  <div v-if="isLoading">Loading...</div>
+  <div v-else-if="error">Error: {{ error.message }}</div>
+  <div v-else>
+    <h2>{{ pet.name }}</h2>
+    <p>Status: {{ pet.status }}</p>
+  </div>
+</template>
+```
+
+### Mutations
+
+```vue examples/openapi-ts-pinia-colada/src/views/PiniaColadaExample.vue
+<script setup lang="ts">
+import { useMutation, useQueryCache } from '@pinia/colada';
+import { addPetMutation, getPetByIdQuery } from '@/client/@pinia/colada.gen';
+import { ref } from 'vue';
+
+const petName = ref('');
+const queryCache = useQueryCache();
+
+const { mutateAsync: createPet, isPending } = useMutation(addPetMutation());
+
+const handleAddPet = async () => {
+  const result = await createPet({
+    body: {
+      name: petName.value,
+      status: 'available',
+    },
+  });
+
+  if (result) {
+    // Invalidate related queries
+    const { key } = getPetByIdQuery({
+      path: { petId: result.id },
+    });
+    await queryCache.invalidateQueries({ key, exact: true });
+  }
+};
+</script>
+
+<template>
+  <form @submit.prevent="handleAddPet">
+    <input v-model="petName" placeholder="Pet name" />
+    <button type="submit" :disabled="isPending">
+      {{ isPending ? 'Adding...' : 'Add Pet' }}
+    </button>
+  </form>
+</template>
+```
+
+### Conditional Queries
+
+Enable or disable queries based on reactive conditions:
+
+```vue
+<script setup lang="ts">
+import { useQuery } from '@pinia/colada';
+import { getPetByIdQuery } from '@/client/@pinia/colada.gen';
+import { ref, computed } from 'vue';
+
+const petId = ref<number | undefined>();
+
+const { data: pet, isLoading } = useQuery(() => ({
+  ...getPetByIdQuery({
+    path: {
+      petId: petId.value as number,
+    },
+  }),
+  // Only fetch when petId is defined
+  enabled: petId.value !== undefined,
+}));
+</script>
+```
+
+### Query Invalidation
+
+Invalidate queries using the query cache:
+
+```vue examples/openapi-ts-pinia-colada/src/views/PiniaColadaExample.vue
+<script setup lang="ts">
+import { useQueryCache } from '@pinia/colada';
+import { getPetByIdQuery } from '@/client/@pinia/colada.gen';
+
+const queryCache = useQueryCache();
+const petId = ref(1);
+
+const invalidatePet = async () => {
+  const { key } = getPetByIdQuery({
+    path: { petId: petId.value },
+  });
+  await queryCache.invalidateQueries({ key, exact: true });
+};
+
+// Invalidate all pet queries
+const invalidateAllPets = async () => {
+  await queryCache.invalidateQueries({
+    key: (key) => key[0]._id.startsWith('getPet'),
+  });
+};
+</script>
+```
+
+### With Custom Headers
+
+Pass custom headers or options:
+
+```vue
+<script setup lang="ts">
+import { useQuery } from '@pinia/colada';
+import { getPetByIdQuery } from '@/client/@pinia/colada.gen';
+
+const token = ref('bearer-token');
+
+const { data: pet } = useQuery(() =>
+  getPetByIdQuery({
+    path: { petId: 1 },
+    headers: {
+      Authorization: `Bearer ${token.value}`,
+    },
+  })
+);
+</script>
+```
+
+### Mutation with Optimistic Updates
+
+```vue
+<script setup lang="ts">
+import { useMutation, useQueryCache } from '@pinia/colada';
+import { updatePetMutation, getPetByIdQuery } from '@/client/@pinia/colada.gen';
+import type { Pet } from '@/client/types.gen';
+
+const queryCache = useQueryCache();
+const petId = ref(1);
+
+const { mutateAsync: updatePet } = useMutation({
+  ...updatePetMutation(),
+  onMutate: async (variables) => {
+    // Cancel outgoing refetches
+    const { key } = getPetByIdQuery({ path: { petId: petId.value } });
+    await queryCache.cancelQueries({ key });
+
+    // Snapshot previous value
+    const previousPet = queryCache.getQueryData<Pet>(key);
+
+    // Optimistically update
+    queryCache.setQueryData(key, {
+      ...previousPet,
+      ...variables.body,
+    });
+
+    return { previousPet };
+  },
+  onError: (error, variables, context) => {
+    // Rollback on error
+    if (context?.previousPet) {
+      const { key } = getPetByIdQuery({ path: { petId: petId.value } });
+      queryCache.setQueryData(key, context.previousPet);
+    }
+  },
+});
+</script>
+```
+
+## Query Key Structure
+
+Generated query keys follow this structure:
+
+```typescript
+export type QueryKey<TOptions extends Options> = [
+  Pick<TOptions, 'path'> & {
+    _id: string;           // Operation ID
+    baseUrl?: _JSONValue;  // Base URL
+    body?: _JSONValue;     // Request body (serialized)
+    query?: _JSONValue;    // Query parameters (serialized)
+    tags?: _JSONValue;     // Operation tags (if enabled)
+  },
+];
+```
+
+Example:
+
+```typescript
+const { key } = getPetByIdQuery({ path: { petId: 1 } });
+// [
+//   {
+//     _id: 'getPetById',
+//     baseUrl: 'https://api.example.com',
+//     path: { petId: 1 },
+//   }
+// ]
+```
+
+## Advanced Patterns
+
+### Global Configuration
+
+Apply configuration across all operations:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@pinia/colada',
+      // Apply to all operations
+      case: 'camelCase',
+      comments: true,
+      includeInEntry: true,
+      // Add tags to all query keys
+      queryKeys: {
+        tags: true,
+      },
+      // Add metadata to all queries
+      queryOptions: {
+        meta: (operation) => ({
+          operationId: operation.id,
+          method: operation.method,
+          path: operation.path,
+        }),
+      },
+    },
+  ],
+});
+```
+
+### Disable Query Keys
+
+If you don't need separate query key exports:
+
+```typescript examples/openapi-ts-pinia-colada/openapi-ts.config.ts
+export default defineConfig({
+  plugins: [
+    {
+      name: '@pinia/colada',
+      includeInEntry: true,
+      queryKeys: false, // Disable query key exports
+    },
+  ],
+});
+```
+
+### Custom Naming
+
+Customize generated function names:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@pinia/colada',
+      queryOptions: '{{name}}QueryDef',
+      mutationOptions: '{{name}}MutationDef',
+      queryKeys: '{{name}}CacheKey',
+    },
+  ],
+});
+```
+
+### With Nuxt Client
+
+The plugin automatically detects when using `@hey-api/client-nuxt` and adjusts type generation:
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  plugins: [
+    '@hey-api/client-nuxt', // Automatically detected
+    '@hey-api/sdk',
+    '@hey-api/typescript',
+    '@pinia/colada',
+  ],
+});
+```
+
+## DevTools Integration
+
+Pinia Colada includes devtools for debugging queries:
+
+```vue
+<script setup lang="ts">
+import { PiniaColadaDevtools } from '@pinia/colada-devtools';
+</script>
+
+<template>
+  <div>
+    <!-- Your app -->
+    <RouterView />
+
+    <!-- DevTools -->
+    <PiniaColadaDevtools />
+  </div>
+</template>
+```
+
+## Type Safety
+
+All generated queries and mutations are fully typed:
+
+```typescript
+import { getPetByIdQuery, addPetMutation } from './client/@pinia/colada.gen';
+import type { GetPetByIdData, AddPetData, Pet } from './client/types.gen';
+
+// TypeScript ensures correct parameter types
+const { data } = useQuery(
+  getPetByIdQuery({
+    path: { petId: 1 }, // ✓ Type-safe
+    // path: { id: 1 },  // ✗ Error: 'id' does not exist
+  })
+);
+
+// Response type is inferred
+data.value?.name; // ✓ Type: string
+data.value?.invalid; // ✗ Error: property does not exist
+
+// Mutation payload is typed
+const { mutateAsync } = useMutation(addPetMutation());
+await mutateAsync({
+  body: {
+    name: 'Fluffy',      // ✓ Type-safe
+    status: 'available', // ✓ Type-safe
+    // invalid: true,    // ✗ Error: property does not exist
+  },
+});
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Pinia Colada Docs" icon="book" href="https://pinia-colada.esm.dev">
+    Official Pinia Colada documentation
+  </Card>
+  <Card title="SDK Plugin" icon="code" href="/plugins/sdk">
+    Learn about the SDK plugin used by Pinia Colada
+  </Card>
+  <Card title="Client Plugins" icon="plug" href="/clients/overview">
+    Configure HTTP clients (Fetch, Nuxt, etc.)
+  </Card>
+  <Card title="State Management Overview" icon="layer-group" href="/state-management/overview">
+    Overview of all state management options
+  </Card>
+</CardGroup>

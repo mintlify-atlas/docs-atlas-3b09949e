@@ -1,0 +1,438 @@
+---
+title: "Schemas Plugin"
+description: "Generate runtime JSON schemas for validation and form handling"
+---
+
+The `@hey-api/schemas` plugin generates runtime JSON Schema objects from your OpenAPI specification. These schemas are useful for runtime validation, form generation, and documentation.
+
+## Installation
+
+The Schemas plugin is included when you install `@hey-api/openapi-ts`:
+
+```bash
+npm install @hey-api/openapi-ts --save-dev
+```
+
+## Configuration
+
+Add the plugin to your `openapi-ts.config.ts`:
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/schemas',
+  ],
+});
+```
+
+## What It Generates
+
+The Schemas plugin generates a `schemas.gen.ts` file containing JavaScript objects that represent your OpenAPI schemas:
+
+<CodeGroup>
+
+```typescript Generated Schemas
+// schemas.gen.ts
+export const UserSchema = {
+  type: 'object',
+  properties: {
+    id: {
+      type: 'string',
+      description: 'Unique user identifier',
+    },
+    name: {
+      type: 'string',
+      description: 'User full name',
+    },
+    email: {
+      type: 'string',
+      format: 'email',
+      description: 'User email address',
+    },
+    createdAt: {
+      type: 'string',
+      format: 'date-time',
+      description: 'Account creation timestamp',
+    },
+  },
+  required: ['id', 'name', 'email', 'createdAt'],
+} as const;
+
+export const CreateUserRequestSchema = {
+  type: 'object',
+  properties: {
+    name: {
+      type: 'string',
+    },
+    email: {
+      type: 'string',
+      format: 'email',
+    },
+  },
+  required: ['name', 'email'],
+} as const;
+```
+
+```typescript Usage Example
+import { UserSchema, CreateUserRequestSchema } from './client/schemas.gen';
+import Ajv from 'ajv';
+
+const ajv = new Ajv();
+
+// Validate data against schema
+const validate = ajv.compile(UserSchema);
+const isValid = validate(data);
+
+if (!isValid) {
+  console.error(validate.errors);
+}
+
+// Use with form libraries
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const userFormSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+```
+
+</CodeGroup>
+
+## Configuration Options
+
+### `type`
+
+Choose the schema type to generate.
+
+<ParamField path="type" type="'json' | 'form'" default="'json'">
+  - `'json'` - Full JSON schemas with descriptions (default)
+  - `'form'` - Minimal schemas without descriptions (smaller bundle size)
+</ParamField>
+
+<Tabs>
+  <Tab title="JSON (default)">
+    ```typescript
+    {
+      name: '@hey-api/schemas',
+      type: 'json',
+    }
+    ```
+
+    Generates complete schemas with descriptions:
+    ```typescript
+    export const UserSchema = {
+      type: 'object',
+      description: 'User account information',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'User full name',
+        },
+      },
+    } as const;
+    ```
+  </Tab>
+  <Tab title="Form">
+    ```typescript
+    {
+      name: '@hey-api/schemas',
+      type: 'form',
+    }
+    ```
+
+    Generates minimal schemas without descriptions:
+    ```typescript
+    export const UserSchema = {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+        },
+      },
+    } as const;
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  Use `type: 'form'` if you're primarily using schemas for form validation and want to reduce bundle size by excluding descriptions.
+</Note>
+
+### `nameBuilder`
+
+Customize the generated schema names.
+
+<ParamField path="nameBuilder" type="string | function" default="'{{name}}Schema'">
+  Pattern or function to transform schema names. The `name` variable is a valid JavaScript/TypeScript identifier.
+</ParamField>
+
+<Tabs>
+  <Tab title="String Pattern">
+    ```typescript
+    {
+      name: '@hey-api/schemas',
+      nameBuilder: '{{name}}Schema',
+    }
+    ```
+
+    ```typescript
+    // Generated output
+    export const UserSchema = { /* ... */ };
+    export const PostSchema = { /* ... */ };
+    ```
+  </Tab>
+  <Tab title="Function">
+    ```typescript
+    {
+      name: '@hey-api/schemas',
+      nameBuilder: (name) => `${name}JsonSchema`,
+    }
+    ```
+
+    ```typescript
+    // Generated output
+    export const UserJsonSchema = { /* ... */ };
+    export const PostJsonSchema = { /* ... */ };
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  If your schema name is "Foo-Bar" in the OpenAPI spec, the `name` parameter will be "FooBar" (a valid JavaScript identifier).
+</Note>
+
+## Use Cases
+
+### Runtime Validation with AJV
+
+```typescript
+import { UserSchema } from './client/schemas.gen';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+
+const ajv = new Ajv();
+addFormats(ajv);
+
+const validateUser = ajv.compile(UserSchema);
+
+function isValidUser(data: unknown): boolean {
+  const valid = validateUser(data);
+  if (!valid) {
+    console.error('Validation errors:', validateUser.errors);
+  }
+  return valid;
+}
+
+// Use in your application
+const userData = await fetch('/api/user').then(r => r.json());
+if (isValidUser(userData)) {
+  // Type-safe user data
+  console.log(userData.name);
+}
+```
+
+### Form Validation with React Hook Form
+
+```typescript
+import { CreateUserRequestSchema } from './client/schemas.gen';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+
+// Convert JSON Schema to Zod schema (requires @hey-api/zod plugin)
+import { createUserRequestSchema } from './client/zod.gen';
+
+function UserForm() {
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(createUserRequestSchema),
+  });
+
+  const onSubmit = (data) => {
+    console.log('Valid data:', data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <input {...register('name')} />
+      {errors.name && <span>{errors.name.message}</span>}
+      
+      <input {...register('email')} />
+      {errors.email && <span>{errors.email.message}</span>}
+      
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+### API Response Validation
+
+```typescript
+import { GetUsersResponseSchema } from './client/schemas.gen';
+import Ajv from 'ajv';
+
+const ajv = new Ajv();
+const validate = ajv.compile(GetUsersResponseSchema);
+
+async function fetchUsers() {
+  const response = await fetch('/api/users');
+  const data = await response.json();
+
+  if (!validate(data)) {
+    throw new Error(`Invalid response: ${JSON.stringify(validate.errors)}`);
+  }
+
+  return data; // Now validated
+}
+```
+
+### Dynamic Form Generation
+
+```typescript
+import { UserSchema } from './client/schemas.gen';
+
+function generateForm(schema: any) {
+  // Use schema.properties to dynamically generate form fields
+  return Object.entries(schema.properties).map(([key, prop]: [string, any]) => {
+    return {
+      name: key,
+      type: prop.type,
+      required: schema.required?.includes(key),
+      description: prop.description,
+      format: prop.format,
+    };
+  });
+}
+
+const formFields = generateForm(UserSchema);
+// [{ name: 'id', type: 'string', required: true, ... }, ...]
+```
+
+## Common Patterns
+
+### Minimal Schemas for Forms
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/schemas',
+      type: 'form', // Exclude descriptions to reduce bundle size
+    },
+  ],
+});
+```
+
+### Custom Schema Naming
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/schemas',
+      nameBuilder: (name) => `${name}JsonSchema`,
+    },
+  ],
+});
+```
+
+### Combined with Validators
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/schemas',
+    '@hey-api/zod', // Generates Zod schemas
+    {
+      name: '@hey-api/sdk',
+      validator: '@hey-api/zod',
+    },
+  ],
+});
+```
+
+## Schema Structure
+
+The generated schemas follow the JSON Schema specification and include:
+
+- **Type definitions** - `type`, `format`, `enum`
+- **Validation constraints** - `required`, `minLength`, `maxLength`, `pattern`, `minimum`, `maximum`
+- **Descriptions** - Schema and property descriptions (when `type: 'json'`)
+- **References** - `$ref` for referencing other schemas
+- **Composition** - `allOf`, `anyOf`, `oneOf` for schema composition
+- **Arrays** - `items` for array item schemas
+- **Objects** - `properties`, `additionalProperties` for object schemas
+
+## Bundle Size Considerations
+
+<Warning>
+  Schemas add to your bundle size. Consider these strategies:
+</Warning>
+
+1. **Use `type: 'form'`** - Removes descriptions to reduce size
+2. **Code splitting** - Import schemas only where needed
+3. **Tree shaking** - Use named imports to ensure unused schemas are removed
+
+```typescript
+// Import only what you need
+import { UserSchema, PostSchema } from './client/schemas.gen';
+
+// Not this
+import * as schemas from './client/schemas.gen';
+```
+
+## Export Configuration
+
+By default, schemas are not included in the entry file (`index.ts`). To include them:
+
+```typescript
+{
+  name: '@hey-api/schemas',
+  includeInEntry: true, // Export schemas from index.ts
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Zod Validator" icon="shield-check" href="/validators/zod">
+  Generate Zod schemas for type-safe validation.
+</Card>
+
+<Card title="Valibot Validator" icon="check-circle" href="/validators/valibot">
+  Generate Valibot schemas for lightweight validation.
+</Card>
+
+<Card title="SDK Plugin" icon="code" href="/core/sdk">
+  Use schemas with SDK validation.
+</Card>
+
+<Card title="Transformers" icon="arrow-right-arrow-left" href="/core/transformers">
+  Transform data at runtime.
+</Card>
+
+</CardGroup>

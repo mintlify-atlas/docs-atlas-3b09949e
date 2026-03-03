@@ -1,0 +1,414 @@
+---
+title: Next.js Example
+description: Use OpenAPI TypeScript with Next.js App Router for server and client components
+---
+
+This example demonstrates how to integrate OpenAPI TypeScript with Next.js, supporting both server and client components with type-safe API calls.
+
+## Configuration
+
+### OpenAPI TypeScript Config
+
+Create `openapi-ts.config.ts` in your project root:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input:
+    'https://raw.githubusercontent.com/swagger-api/swagger-petstore/master/src/main/resources/openapi.yaml',
+  logs: {
+    path: './logs',
+  },
+  output: {
+    path: './src/client',
+    postProcess: ['oxfmt', 'eslint'],
+  },
+  plugins: [
+    {
+      name: '@hey-api/client-next',
+      runtimeConfigPath: '../hey-api',
+    },
+    '@hey-api/sdk',
+    {
+      enums: 'javascript',
+      name: '@hey-api/typescript',
+    },
+  ],
+});
+```
+
+Key features:
+- `@hey-api/client-next` - Next.js-specific client with App Router support
+- `runtimeConfigPath` - Path to client configuration file
+
+### Client Configuration
+
+Create a configuration file for the client:
+
+```typescript src/hey-api.ts
+import type { CreateClientConfig } from './client/client.gen';
+
+export const createClientConfig: CreateClientConfig = (config) => ({
+  ...config,
+  // set default base url for requests
+  baseUrl: 'https://petstore3.swagger.io/api/v3',
+  // set default headers for requests
+  headers: {
+    Authorization: 'Bearer <token_from_internal_client>',
+  },
+});
+```
+
+### Package Dependencies
+
+```json package.json
+{
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "latest",
+    "typescript": "^5.9.0"
+  },
+  "scripts": {
+    "openapi-ts": "openapi-ts",
+    "dev": "next dev",
+    "build": "next build"
+  }
+}
+```
+
+## Usage
+
+### Client Component
+
+Use `'use client'` directive for interactive components:
+
+```typescript app/page.tsx
+'use client';
+
+import Image from 'next/image';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
+import { getPetById } from '@/src/client/sdk.gen';
+import type { Pet } from '@/src/client/types.gen';
+
+export default function Home() {
+  const [pet, setPet] = useState<Pet>();
+  const [petId, setPetId] = useState(8);
+
+  useEffect(() => {
+    const fetchPet = async () => {
+      const { data } = await getPetById({
+        cache: 'force-cache',
+        next: {
+          revalidate: 10,
+          tags: ['pet'],
+        },
+        path: {
+          petId,
+        },
+      });
+
+      if (data) {
+        setPet(data);
+      }
+    };
+
+    fetchPet();
+  }, [petId]);
+
+  return (
+    <div className="min-h-screen p-8">
+      <h1>Next.js + OpenAPI TypeScript</h1>
+      
+      {pet && (
+        <div className="pet-card">
+          <h2>{pet.name}</h2>
+          <p>Category: {pet.category?.name ?? 'N/A'}</p>
+        </div>
+      )}
+      
+      <button
+        onClick={() => {
+          setPetId(Math.floor(Math.random() * 10 + 1));
+        }}
+      >
+        Random pet
+      </button>
+      
+      <Link href="/pet/8">Server component</Link>
+    </div>
+  );
+}
+```
+
+### Server Component
+
+Server components can directly await API calls:
+
+```typescript app/pet/[id]/page.tsx
+import Image from 'next/image';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+
+import { getPetById } from '@/src/client/sdk.gen';
+
+async function getPet(id: string) {
+  const petId = Number.parseInt(id, 10);
+  const { data: pet } = await getPetById({
+    cache: 'force-cache',
+    next: {
+      revalidate: 10,
+      tags: ['pet'],
+    },
+    path: {
+      petId,
+    },
+    throwOnError: true,
+  });
+  
+  if (!pet) {
+    notFound();
+  }
+  
+  return pet;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const pet = await getPet(id);
+  return {
+    name: pet.name,
+  };
+}
+
+export default async function PetPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const pet = await getPet(id);
+
+  return (
+    <div className="min-h-screen p-8">
+      <h1>Server Component</h1>
+      
+      <div className="pet-card">
+        <h2>{pet.name}</h2>
+        <p>Category: {pet.category?.name ?? 'N/A'}</p>
+        <p>Status: {pet.status}</p>
+      </div>
+      
+      <Link href="/">Back to client component</Link>
+    </div>
+  );
+}
+```
+
+### Layout with Interceptors
+
+Configure global interceptors in the root layout:
+
+```typescript app/layout.tsx
+import './globals.css';
+import type { Metadata } from 'next';
+import { client } from '@/src/client/client.gen';
+
+// Configure request interceptor
+client.interceptors.request.use((options) => {
+  console.log('Request:', options);
+});
+
+// Configure response interceptor
+client.interceptors.response.use((response, options) => {
+  console.log('Response:', response.status, options);
+  return response;
+});
+
+export const metadata: Metadata = {
+  title: 'Next.js + OpenAPI TypeScript',
+  description: 'Type-safe API integration',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+## Next.js Features
+
+### Caching and Revalidation
+
+Use Next.js caching options with API calls:
+
+```typescript
+// Force cache with revalidation
+const { data } = await getPetById({
+  cache: 'force-cache',
+  next: {
+    revalidate: 3600, // Revalidate every hour
+    tags: ['pet'],
+  },
+  path: { petId: 1 },
+});
+
+// No caching
+const { data } = await getPetById({
+  cache: 'no-store',
+  path: { petId: 1 },
+});
+```
+
+### Dynamic Routes
+
+Type-safe dynamic route parameters:
+
+```typescript
+// app/pet/[id]/page.tsx
+export default async function PetPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const petId = Number.parseInt(id, 10);
+  
+  const { data } = await getPetById({
+    path: { petId },
+  });
+  
+  return <div>{data?.name}</div>;
+}
+```
+
+### Error Handling
+
+Handle errors gracefully:
+
+```typescript
+const { data, error } = await getPetById({
+  path: { petId: 1 },
+  throwOnError: false, // Don't throw, return error
+});
+
+if (error) {
+  // Handle error
+  return <div>Error: {error.message}</div>;
+}
+
+return <div>{data.name}</div>;
+```
+
+### Metadata Generation
+
+Generate metadata from API responses:
+
+```typescript
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const { data: pet } = await getPetById({
+    path: { petId: Number.parseInt(id) },
+  });
+  
+  return {
+    title: pet?.name ?? 'Pet',
+    description: `View ${pet?.name}`,
+  };
+}
+```
+
+## Key Features
+
+### Type Safety
+
+Full TypeScript support in both server and client components:
+
+```typescript
+// Pet type is inferred
+const { data } = await getPetById({ path: { petId: 1 } });
+
+// TypeScript knows data is Pet | undefined
+const name: string = data?.name ?? 'Unknown';
+```
+
+### Server Components
+
+Direct async/await in server components:
+
+```typescript
+// No need for useEffect or useState
+export default async function Page() {
+  const { data } = await getPetById({ path: { petId: 1 } });
+  return <div>{data?.name}</div>;
+}
+```
+
+### Request Interceptors
+
+Add authentication and logging:
+
+```typescript
+client.interceptors.request.use((options) => {
+  // Add auth header
+  options.headers = {
+    ...options.headers,
+    Authorization: `Bearer ${getToken()}`,
+  };
+});
+```
+
+## Running the Example
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/hey-api/openapi-ts.git
+    cd openapi-ts
+    ```
+  </Step>
+  
+  <Step title="Install dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+  
+  <Step title="Run the Next.js example">
+    ```bash
+    pnpm example next dev
+    ```
+  </Step>
+  
+  <Step title="Open in browser">
+    Navigate to `http://localhost:3000`
+  </Step>
+</Steps>
+
+## Full Example
+
+View the complete example in the repository:
+
+[Next.js Example on GitHub](https://github.com/hey-api/openapi-ts/tree/main/examples/openapi-ts-next)
+
+## Learn More
+
+<CardGroup cols={2}>
+  <Card title="Next.js Client" href="/clients/next" />
+  <Card title="SDK Plugin" href="/plugins/sdk" />
+  <Card title="TypeScript Plugin" href="/plugins/typescript" />
+  <Card title="Examples Overview" href="/examples/overview" />
+</CardGroup>

@@ -1,0 +1,213 @@
+---
+title: Validators Overview
+description: Generate runtime validation schemas from OpenAPI specifications
+---
+
+OpenAPI TypeScript supports generating runtime validation schemas from your OpenAPI specifications. Validators provide runtime type safety by validating data against your API contracts at runtime, catching errors before they reach your application logic.
+
+## Why Use Validators?
+
+While TypeScript provides compile-time type safety, validators add runtime safety:
+
+- **Runtime validation**: Ensure data from external sources matches your expected types
+- **Type inference**: Generate TypeScript types from validation schemas
+- **API contract enforcement**: Validate requests and responses against your OpenAPI spec
+- **Developer experience**: Get instant feedback when data doesn't match expectations
+
+## Available Validator Libraries
+
+OpenAPI TypeScript supports multiple validation libraries:
+
+<CardGroup cols={2}>
+  <Card title="Zod" icon="shield-check" href="/validators/zod">
+    TypeScript-first schema validation with static type inference
+  </Card>
+  <Card title="Valibot" icon="shield-check" href="/validators/valibot">
+    Modular and lightweight schema library with excellent bundle size
+  </Card>
+</CardGroup>
+
+## How It Works
+
+Validator plugins generate schemas from your OpenAPI specification that can validate:
+
+1. **Definitions** - Reusable component schemas
+2. **Requests** - Request bodies, query parameters, path parameters, and headers
+3. **Responses** - Response bodies and status codes
+4. **Webhooks** - Webhook payload schemas
+
+## Quick Start
+
+Add a validator plugin to your configuration:
+
+<CodeGroup>
+
+```ts openapi-ts.config.ts (Zod)
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'path/to/openapi.json',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/sdk',
+    {
+      name: '@hey-api/zod',
+    },
+  ],
+});
+```
+
+```ts openapi-ts.config.ts (Valibot)
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'path/to/openapi.json',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/sdk',
+    {
+      name: '@hey-api/valibot',
+    },
+  ],
+});
+```
+
+</CodeGroup>
+
+Generate your schemas:
+
+```bash
+npx @hey-api/openapi-ts
+```
+
+## Configuration Options
+
+Both validator plugins share similar configuration patterns:
+
+### Schema Generation
+
+Control which schemas are generated:
+
+```ts
+{
+  name: '@hey-api/zod', // or '@hey-api/valibot'
+  definitions: true,    // Component schemas
+  requests: true,       // Request validators
+  responses: true,      // Response validators
+  webhooks: true,       // Webhook validators
+}
+```
+
+### Naming Patterns
+
+Customize generated schema names:
+
+```ts
+{
+  name: '@hey-api/zod',
+  definitions: {
+    name: 'z{{name}}',  // Prefix with 'z'
+  },
+  requests: {
+    name: 'z{{name}}Data',
+  },
+  responses: {
+    name: 'z{{name}}Response',
+  },
+}
+```
+
+### Casing Conventions
+
+Set casing for generated identifiers:
+
+```ts
+{
+  name: '@hey-api/zod',
+  case: 'camelCase',  // or 'PascalCase', 'snake_case', 'SCREAMING_SNAKE_CASE'
+}
+```
+
+## Usage Examples
+
+### Validating API Responses
+
+```ts
+import { zGetPetResponse } from './client/zod.gen';
+
+const response = await fetch('/api/pets/1');
+const data = await response.json();
+
+// Validate and parse the response
+const pet = await zGetPetResponse.parseAsync(data);
+// pet is now fully typed and validated
+```
+
+### Validating Request Data
+
+```ts
+import { zCreatePetData } from './client/zod.gen';
+
+// Validate request data before sending
+const requestData = await zCreatePetData.parseAsync({
+  name: 'Fluffy',
+  age: 3,
+});
+
+await fetch('/api/pets', {
+  method: 'POST',
+  body: JSON.stringify(requestData),
+});
+```
+
+## Type Inference
+
+Generate TypeScript types from your validation schemas:
+
+<CodeGroup>
+
+```ts Zod
+import { z } from 'zod';
+import { zPet } from './client/zod.gen';
+
+// Infer TypeScript type from Zod schema
+type Pet = z.infer<typeof zPet>;
+```
+
+```ts Valibot
+import * as v from 'valibot';
+import { vPet } from './client/valibot.gen';
+
+// Infer TypeScript type from Valibot schema
+type Pet = v.InferOutput<typeof vPet>;
+```
+
+</CodeGroup>
+
+Or enable automatic type generation:
+
+```ts
+{
+  name: '@hey-api/zod',
+  types: {
+    infer: true,  // Generate inferred types
+  },
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Zod Plugin" icon="shield-check" href="/validators/zod">
+    Learn about Zod-specific features and configuration
+  </Card>
+  <Card title="Valibot Plugin" icon="shield-check" href="/validators/valibot">
+    Learn about Valibot-specific features and configuration
+  </Card>
+</CardGroup>

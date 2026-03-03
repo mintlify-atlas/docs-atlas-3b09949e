@@ -1,0 +1,447 @@
+---
+title: Plugins Configuration
+description: Configure which artifacts are generated from your OpenAPI specification
+---
+
+Plugins generate artifacts from your OpenAPI specification. By default, TypeScript types and SDK functions are generated. You can customize which plugins are used and their configuration.
+
+## Default Plugins
+
+If you don't specify `plugins`, these defaults are used:
+
+```typescript
+plugins: ['@hey-api/typescript', '@hey-api/sdk']
+```
+
+This generates:
+- TypeScript interfaces and types (`@hey-api/typescript`)
+- SDK functions for API calls (`@hey-api/sdk`)
+
+## Available Plugins
+
+### Core Plugins
+
+<AccordionGroup>
+  <Accordion title="@hey-api/typescript" icon="code">
+    Generates TypeScript types and interfaces from OpenAPI schemas.
+
+    ```typescript
+    plugins: [
+      {
+        name: '@hey-api/typescript',
+        enums: 'javascript',
+        case: 'PascalCase',
+      },
+    ]
+    ```
+
+    See the [@hey-api/typescript plugin documentation](/core/typescript) for all options.
+  </Accordion>
+
+  <Accordion title="@hey-api/sdk" icon="function">
+    Generates type-safe SDK functions for making API calls.
+
+    ```typescript
+    plugins: [
+      {
+        name: '@hey-api/sdk',
+        paramsStructure: 'flat',
+        responseStyle: 'data',
+      },
+    ]
+    ```
+
+    See the [@hey-api/sdk plugin documentation](/core/sdk) for all options.
+  </Accordion>
+
+  <Accordion title="@hey-api/schemas" icon="brackets-curly">
+    Generates runtime JSON schemas for validation and transformation.
+
+    ```typescript
+    plugins: ['@hey-api/schemas']
+    ```
+  </Accordion>
+
+  <Accordion title="@hey-api/transformers" icon="arrows-rotate">
+    Generates transformer functions for converting data types (e.g., ISO strings to Date objects).
+
+    ```typescript
+    plugins: ['@hey-api/transformers']
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### HTTP Clients
+
+<AccordionGroup>
+  <Accordion title="@hey-api/client-fetch" icon="download">
+    Fetch API client (browser and Node.js 18+).
+
+    ```typescript
+    plugins: ['@hey-api/client-fetch']
+    ```
+  </Accordion>
+
+  <Accordion title="@hey-api/client-axios" icon="download">
+    Axios client for HTTP requests.
+
+    ```typescript
+    plugins: ['@hey-api/client-axios']
+    ```
+  </Accordion>
+
+  <Accordion title="@hey-api/client-ky" icon="download">
+    Ky client (Fetch wrapper with extra features).
+
+    ```typescript
+    plugins: ['@hey-api/client-ky']
+    ```
+  </Accordion>
+
+  <Accordion title="@hey-api/client-next" icon="download">
+    Next.js optimized client.
+
+    ```typescript
+    plugins: ['@hey-api/client-next']
+    ```
+  </Accordion>
+
+  <Accordion title="@hey-api/client-nuxt" icon="download">
+    Nuxt.js optimized client.
+
+    ```typescript
+    plugins: ['@hey-api/client-nuxt']
+    ```
+  </Accordion>
+
+  <Accordion title="@hey-api/client-ofetch" icon="download">
+    ofetch client (universal fetch wrapper).
+
+    ```typescript
+    plugins: ['@hey-api/client-ofetch']
+    ```
+  </Accordion>
+
+  <Accordion title="@hey-api/client-angular" icon="download">
+    Angular HttpClient wrapper.
+
+    ```typescript
+    plugins: ['@hey-api/client-angular']
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Framework Integrations
+
+<AccordionGroup>
+  <Accordion title="@tanstack/react-query" icon="react">
+    TanStack Query (React Query) hooks.
+
+    ```typescript
+    plugins: ['@tanstack/react-query']
+    ```
+  </Accordion>
+
+  <Accordion title="@tanstack/vue-query" icon="vuejs">
+    TanStack Query for Vue.js.
+
+    ```typescript
+    plugins: ['@tanstack/vue-query']
+    ```
+  </Accordion>
+
+  <Accordion title="@tanstack/svelte-query" icon="code">
+    TanStack Query for Svelte.
+
+    ```typescript
+    plugins: ['@tanstack/svelte-query']
+    ```
+  </Accordion>
+
+  <Accordion title="@tanstack/solid-query" icon="code">
+    TanStack Query for Solid.js.
+
+    ```typescript
+    plugins: ['@tanstack/solid-query']
+    ```
+  </Accordion>
+
+  <Accordion title="@tanstack/angular-query-experimental" icon="angular">
+    TanStack Query for Angular (experimental).
+
+    ```typescript
+    plugins: ['@tanstack/angular-query-experimental']
+    ```
+  </Accordion>
+
+  <Accordion title="@pinia/colada" icon="vuejs">
+    Pinia Colada for Vue.js state management.
+
+    ```typescript
+    plugins: ['@pinia/colada']
+    ```
+  </Accordion>
+
+  <Accordion title="swr" icon="react">
+    SWR hooks for React.
+
+    ```typescript
+    plugins: ['swr']
+    ```
+  </Accordion>
+
+  <Accordion title="@angular/common" icon="angular">
+    Angular common utilities.
+
+    ```typescript
+    plugins: ['@angular/common']
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Validators
+
+<AccordionGroup>
+  <Accordion title="zod" icon="shield-check">
+    Generates Zod schemas for runtime validation.
+
+    ```typescript
+    plugins: ['zod']
+    ```
+  </Accordion>
+
+  <Accordion title="valibot" icon="shield-check">
+    Generates Valibot schemas for runtime validation.
+
+    ```typescript
+    plugins: ['valibot']
+    ```
+  </Accordion>
+
+  <Accordion title="arktype" icon="shield-check">
+    Generates ArkType schemas for runtime validation.
+
+    ```typescript
+    plugins: ['arktype']
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Other Plugins
+
+<AccordionGroup>
+  <Accordion title="fastify" icon="server">
+    Generates Fastify route handlers.
+
+    ```typescript
+    plugins: ['fastify']
+    ```
+  </Accordion>
+
+  <Accordion title="@faker-js/faker" icon="wand-magic-sparkles">
+    Generates fake data generators using Faker.js.
+
+    ```typescript
+    plugins: ['@faker-js/faker']
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Plugin Configuration
+
+### String Format
+
+Use the plugin name as a string to enable it with default settings:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/sdk',
+    '@hey-api/client-fetch',
+  ],
+});
+```
+
+### Object Format
+
+Use an object to customize plugin configuration:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+  plugins: [
+    {
+      name: '@hey-api/typescript',
+      enums: 'javascript',
+      case: 'PascalCase',
+    },
+    {
+      name: '@hey-api/sdk',
+      paramsStructure: 'flat',
+    },
+    '@hey-api/client-fetch',
+  ],
+});
+```
+
+## Common Plugin Options
+
+Most plugins support these common options:
+
+<ParamField path="name" type="string" required>
+  The plugin name.
+</ParamField>
+
+<ParamField path="includeInEntry" type="boolean | function" default={false}>
+  Whether exports from this plugin should be included in the entry file.
+  
+  ```typescript
+  {
+    name: '@hey-api/typescript',
+    includeInEntry: true,
+  }
+  ```
+  
+  Or use a function for fine-grained control:
+  
+  ```typescript
+  {
+    name: '@hey-api/typescript',
+    includeInEntry: (symbol) => symbol.meta.category === 'type',
+  }
+  ```
+</ParamField>
+
+<ParamField path="comments" type="boolean" default={true}>
+  Include comments in generated code.
+  
+  ```typescript
+  {
+    name: '@hey-api/typescript',
+    comments: false,
+  }
+  ```
+</ParamField>
+
+## Plugin Dependencies
+
+Some plugins automatically enable other plugins as dependencies:
+
+- `@hey-api/sdk` automatically includes `@hey-api/typescript`
+- TanStack Query plugins automatically include `@hey-api/sdk` and a client
+- Validator plugins (Zod, Valibot) include `@hey-api/schemas`
+
+You don't need to manually add dependencies.
+
+## Single Client Rule
+
+When you specify only one HTTP client plugin, the default plugins are automatically included:
+
+```typescript
+plugins: ['@hey-api/client-fetch']
+// Automatically becomes:
+// ['@hey-api/typescript', '@hey-api/sdk', '@hey-api/client-fetch']
+```
+
+If you specify other plugins, you must explicitly include all desired plugins:
+
+```typescript
+plugins: [
+  '@hey-api/typescript',
+  '@hey-api/sdk',
+  '@hey-api/client-fetch',
+  'zod',
+]
+```
+
+## Examples
+
+### React Query with Fetch Client
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+  plugins: [
+    '@hey-api/client-fetch',
+    '@hey-api/sdk',
+    {
+      name: '@hey-api/typescript',
+      enums: 'javascript',
+    },
+    '@tanstack/react-query',
+  ],
+});
+```
+
+### Axios Client with Zod Validation
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+  plugins: [
+    '@hey-api/client-axios',
+    '@hey-api/schemas',
+    '@hey-api/sdk',
+    '@hey-api/typescript',
+    'zod',
+  ],
+});
+```
+
+### Fastify Backend
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.json',
+  output: './src/generated',
+  plugins: [
+    'fastify',
+    '@hey-api/sdk',
+  ],
+});
+```
+
+### Multiple Frameworks
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig([
+  {
+    input: 'https://api.example.com/openapi.json',
+    output: './src/client/react',
+    plugins: [
+      '@hey-api/client-fetch',
+      '@hey-api/sdk',
+      '@hey-api/typescript',
+      '@tanstack/react-query',
+    ],
+  },
+  {
+    input: 'https://api.example.com/openapi.json',
+    output: './src/client/vue',
+    plugins: [
+      '@hey-api/client-fetch',
+      '@hey-api/sdk',
+      '@hey-api/typescript',
+      '@tanstack/vue-query',
+    ],
+  },
+]);
+```

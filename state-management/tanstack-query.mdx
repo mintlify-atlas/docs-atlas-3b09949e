@@ -1,0 +1,608 @@
+---
+title: TanStack Query
+description: Generate type-safe hooks and query options for TanStack Query across React, Vue, Svelte, Solid, and Angular.
+---
+
+TanStack Query plugins generate fully typed query options, mutation options, query keys, and optional hooks for your OpenAPI operations. Support is available for React, Vue, Svelte, Solid, and Angular.
+
+## Available Plugins
+
+<CardGroup cols={2}>
+  <Card title="React Query" icon="react">
+    `@tanstack/react-query`
+  </Card>
+  <Card title="Vue Query" icon="vuejs">
+    `@tanstack/vue-query`
+  </Card>
+  <Card title="Svelte Query" icon="code">
+    `@tanstack/svelte-query`
+  </Card>
+  <Card title="Solid Query" icon="code">
+    `@tanstack/solid-query`
+  </Card>
+  <Card title="Angular Query" icon="angular">
+    `@tanstack/angular-query-experimental`
+  </Card>
+</CardGroup>
+
+## Installation
+
+<Steps>
+  <Step title="Install Dependencies">
+    Install your framework's TanStack Query package:
+
+    <CodeGroup>
+    ```bash React
+    npm install @tanstack/react-query
+    ```
+
+    ```bash Vue
+    npm install @tanstack/vue-query
+    ```
+
+    ```bash Svelte
+    npm install @tanstack/svelte-query
+    ```
+
+    ```bash Solid
+    npm install @tanstack/solid-query
+    ```
+
+    ```bash Angular
+    npm install @tanstack/angular-query-experimental
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Configure Plugin">
+    Add the plugin to your `openapi-ts.config.ts`:
+
+    <CodeGroup>
+    ```typescript React
+    import { defineConfig } from '@hey-api/openapi-ts';
+
+    export default defineConfig({
+      input: 'https://api.example.com/openapi.json',
+      output: {
+        path: './src/client',
+      },
+      plugins: [
+        '@hey-api/client-fetch',
+        '@hey-api/sdk',
+        '@hey-api/typescript',
+        '@tanstack/react-query',
+      ],
+    });
+    ```
+
+    ```typescript Vue
+    import { defineConfig } from '@hey-api/openapi-ts';
+
+    export default defineConfig({
+      input: 'https://api.example.com/openapi.json',
+      output: {
+        path: './src/client',
+      },
+      plugins: [
+        '@hey-api/client-fetch',
+        '@hey-api/sdk',
+        '@hey-api/typescript',
+        '@tanstack/vue-query',
+      ],
+    });
+    ```
+
+    ```typescript Svelte
+    import { defineConfig } from '@hey-api/openapi-ts';
+
+    export default defineConfig({
+      input: 'https://api.example.com/openapi.json',
+      output: {
+        path: './src/client',
+      },
+      plugins: [
+        '@hey-api/client-fetch',
+        '@hey-api/sdk',
+        '@hey-api/typescript',
+        '@tanstack/svelte-query',
+      ],
+    });
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Generate Client">
+    Run the generator:
+
+    ```bash
+    npx @hey-api/openapi-ts
+    ```
+  </Step>
+</Steps>
+
+## Generated Code
+
+The plugin generates the following artifacts for each operation:
+
+### Query Options (GET operations)
+
+For GET operations, query options are generated with the naming pattern `{{name}}Options` (default):
+
+```typescript packages/openapi-ts/src/plugins/@tanstack/query-core/v5/queryOptions.ts
+export const findPetsByStatusOptions = (options: Options<FindPetsByStatusData>) =>
+  queryOptions<
+    FindPetsByStatusResponse,
+    DefaultError,
+    FindPetsByStatusResponse,
+    ReturnType<typeof findPetsByStatusQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await client.findPetsByStatus({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: findPetsByStatusQueryKey(options),
+  });
+```
+
+### Mutation Options (POST/PUT/DELETE operations)
+
+For mutations, mutation options are generated with the naming pattern `{{name}}Mutation` (default):
+
+```typescript packages/openapi-ts/src/plugins/@tanstack/query-core/v5/mutationOptions.ts
+export const addPetMutation = (
+  options?: Partial<Options<AddPetData>>,
+): UseMutationOptions<AddPetResponse, DefaultError, Options<AddPetData>> => {
+  const mutationOptions: UseMutationOptions<AddPetResponse, DefaultError, Options<AddPetData>> = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await client.addPet({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+```
+
+### Query Keys
+
+Query key functions are generated with the naming pattern `{{name}}QueryKey` (default):
+
+```typescript
+export const getPetByIdQueryKey = (options: Options<GetPetByIdData>) =>
+  createQueryKey('getPetById', options);
+```
+
+### Infinite Query Options
+
+For paginated operations (detected via pagination parameters), infinite query options are generated:
+
+```typescript packages/openapi-ts/src/plugins/@tanstack/query-core/v5/infiniteQueryOptions.ts
+export const findPetsByStatusInfiniteOptions = (options: Options<FindPetsByStatusData>) =>
+  infiniteQueryOptions({
+    queryFn: async ({ pageParam, queryKey, signal }) => {
+      const page = typeof pageParam === 'object'
+        ? pageParam
+        : { query: { offset: pageParam } };
+      const params = createInfiniteParams(queryKey, page);
+      const { data } = await client.findPetsByStatus({
+        ...options,
+        ...params,
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: findPetsByStatusInfiniteQueryKey(options),
+  });
+```
+
+## Configuration
+
+All TanStack Query plugins support the same configuration options:
+
+### Query Options
+
+Configure query options generation:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      queryOptions: {
+        // Naming pattern (default: '{{name}}Options')
+        name: '{{name}}QueryOptions',
+        // Enable/disable generation (default: true)
+        enabled: true,
+        // Export from generated file (default: true)
+        exported: true,
+        // Add custom metadata
+        meta: (operation) => ({
+          operationId: operation.id,
+          tags: operation.tags,
+        }),
+      },
+    },
+  ],
+});
+```
+
+### Mutation Options
+
+Configure mutation options generation:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      mutationOptions: {
+        // Naming pattern (default: '{{name}}Mutation')
+        name: '{{name}}MutationOptions',
+        // Enable/disable generation (default: true)
+        enabled: true,
+        // Add custom metadata
+        meta: (operation) => ({
+          invalidatesTags: operation.tags,
+        }),
+      },
+    },
+  ],
+});
+```
+
+### Query Keys
+
+Configure query key generation:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      queryKeys: {
+        // Naming pattern (default: '{{name}}QueryKey')
+        name: '{{name}}Key',
+        // Enable/disable generation (default: true)
+        enabled: true,
+        // Include operation tags in keys for better cache invalidation
+        tags: true,
+      },
+    },
+  ],
+});
+```
+
+### Infinite Query Options
+
+Configure infinite query options:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      infiniteQueryOptions: {
+        // Naming pattern (default: '{{name}}InfiniteOptions')
+        name: '{{name}}InfiniteQueryOptions',
+        // Enable/disable generation (default: true)
+        enabled: true,
+      },
+      infiniteQueryKeys: {
+        // Naming pattern (default: '{{name}}InfiniteQueryKey')
+        name: '{{name}}InfiniteKey',
+        // Enable/disable generation (default: true)
+        enabled: true,
+        // Include tags in infinite query keys
+        tags: false,
+      },
+    },
+  ],
+});
+```
+
+### useQuery Hooks (React only)
+
+Optionally generate `useQuery` hooks that wrap query options:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      useQuery: {
+        // Naming pattern (default: 'use{{name}}Query')
+        name: 'use{{name}}',
+        // Enable/disable generation (default: false)
+        enabled: true,
+      },
+    },
+  ],
+});
+```
+
+This generates hooks like:
+
+```typescript packages/openapi-ts/src/plugins/@tanstack/query-core/v5/useQuery.ts
+export const useGetPetByIdQuery = (options: Options<GetPetByIdData>) =>
+  useQuery(getPetByIdOptions(options));
+```
+
+## Usage Examples
+
+### Basic Query
+
+<CodeGroup>
+```tsx React
+import { useQuery } from '@tanstack/react-query';
+import { getPetByIdOptions } from './client/@tanstack/react-query.gen';
+
+function PetDetails({ petId }: { petId: number }) {
+  const { data, error, isLoading } = useQuery(
+    getPetByIdOptions({
+      path: { petId },
+    })
+  );
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  return <div>{data.name}</div>;
+}
+```
+
+```vue Vue
+<script setup lang="ts">
+import { useQuery } from '@tanstack/vue-query';
+import { getPetByIdOptions } from './client/@tanstack/vue-query.gen';
+
+const petId = ref(1);
+const { data, error, isLoading } = useQuery(
+  getPetByIdOptions({
+    path: { petId: petId.value },
+  })
+);
+</script>
+
+<template>
+  <div v-if="isLoading">Loading...</div>
+  <div v-else-if="error">Error: {{ error.message }}</div>
+  <div v-else>{{ data.name }}</div>
+</template>
+```
+
+```svelte Svelte
+<script lang="ts">
+import { createQuery } from '@tanstack/svelte-query';
+import { getPetByIdOptions } from './client/@tanstack/svelte-query.gen';
+
+export let petId: number;
+
+$: query = createQuery(
+  getPetByIdOptions({
+    path: { petId },
+  })
+);
+</script>
+
+{#if $query.isLoading}
+  <div>Loading...</div>
+{:else if $query.error}
+  <div>Error: {$query.error.message}</div>
+{:else}
+  <div>{$query.data.name}</div>
+{/if}
+```
+</CodeGroup>
+
+### Mutations
+
+<CodeGroup>
+```tsx React
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { addPetMutation, getPetByIdQueryKey } from './client/@tanstack/react-query.gen';
+
+function AddPetForm() {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    ...addPetMutation(),
+    onSuccess: (data) => {
+      // Invalidate related queries
+      queryClient.invalidateQueries({
+        queryKey: getPetByIdQueryKey({ path: { petId: data.id } }),
+      });
+    },
+  });
+
+  const handleSubmit = async (formData: FormData) => {
+    await mutation.mutateAsync({
+      body: {
+        name: formData.get('name') as string,
+        status: 'available',
+      },
+    });
+  };
+
+  return <form onSubmit={handleSubmit}>{/* form fields */}</form>;
+}
+```
+
+```vue Vue
+<script setup lang="ts">
+import { useMutation, useQueryClient } from '@tanstack/vue-query';
+import { addPetMutation, getPetByIdQueryKey } from './client/@tanstack/vue-query.gen';
+
+const queryClient = useQueryClient();
+const { mutateAsync } = useMutation({
+  ...addPetMutation(),
+  onSuccess: (data) => {
+    queryClient.invalidateQueries({
+      queryKey: getPetByIdQueryKey({ path: { petId: data.id } }),
+    });
+  },
+});
+
+const handleSubmit = async () => {
+  await mutateAsync({
+    body: {
+      name: 'Fluffy',
+      status: 'available',
+    },
+  });
+};
+</script>
+```
+</CodeGroup>
+
+### Infinite Queries
+
+```tsx examples/openapi-ts-tanstack-react-query/src/App.tsx
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { findPetsByStatusInfiniteOptions } from './client/@tanstack/react-query.gen';
+
+function PetList() {
+  const { data, fetchNextPage, hasNextPage, isLoading } = useInfiniteQuery({
+    ...findPetsByStatusInfiniteOptions({
+      query: { status: 'available' },
+    }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => {
+      return lastPage.length === 20 ? pages.length * 20 : undefined;
+    },
+  });
+
+  return (
+    <div>
+      {data?.pages.map((page) =>
+        page.map((pet) => <div key={pet.id}>{pet.name}</div>)
+      )}
+      {hasNextPage && (
+        <button onClick={() => fetchNextPage()}>Load More</button>
+      )}
+    </div>
+  );
+}
+```
+
+### With Custom Client
+
+Pass a custom client instance to generated options:
+
+```typescript
+import { createClient } from './client/client';
+import { getPetByIdOptions } from './client/@tanstack/react-query.gen';
+
+const customClient = createClient({
+  baseUrl: 'https://api.example.com',
+  headers: {
+    Authorization: 'Bearer token',
+  },
+});
+
+const { data } = useQuery(
+  getPetByIdOptions({
+    client: customClient,
+    path: { petId: 1 },
+  })
+);
+```
+
+## Query Key Structure
+
+Generated query keys follow this structure:
+
+```typescript
+type QueryKey<TOptions extends Options> = [
+  Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
+    _id: string;           // Operation ID
+    _infinite?: boolean;   // True for infinite queries
+    tags?: string[];       // Operation tags (if enabled)
+  },
+];
+```
+
+Example:
+
+```typescript
+const key = getPetByIdQueryKey({ path: { petId: 1 } });
+// [
+//   {
+//     _id: 'getPetById',
+//     baseUrl: 'https://api.example.com',
+//     path: { petId: 1 },
+//   }
+// ]
+```
+
+## Advanced Patterns
+
+### Global Configuration
+
+Apply configuration across all operations:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      // Apply to all operations
+      case: 'camelCase',
+      comments: true,
+      // Add tags to all query keys
+      queryKeys: {
+        tags: true,
+      },
+      // Add metadata to all queries
+      queryOptions: {
+        meta: (operation) => ({
+          operationId: operation.id,
+          method: operation.method,
+          path: operation.path,
+        }),
+      },
+    },
+  ],
+});
+```
+
+### Selective Feature Generation
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      // Only generate query options and keys
+      queryOptions: true,
+      queryKeys: true,
+      // Disable mutations and infinite queries
+      mutationOptions: false,
+      infiniteQueryOptions: false,
+    },
+  ],
+});
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="TanStack Query Docs" icon="book" href="https://tanstack.com/query/latest">
+    Official TanStack Query documentation
+  </Card>
+  <Card title="SDK Plugin" icon="code" href="/plugins/sdk">
+    Learn about the SDK plugin used by TanStack Query
+  </Card>
+  <Card title="Client Plugins" icon="plug" href="/clients/overview">
+    Configure HTTP clients (Fetch, Axios, etc.)
+  </Card>
+  <Card title="State Management Overview" icon="layer-group" href="/state-management/overview">
+    Overview of all state management options
+  </Card>
+</CardGroup>

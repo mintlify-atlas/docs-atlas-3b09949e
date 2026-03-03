@@ -1,0 +1,82 @@
+---
+title: Examples Overview
+description: Explore real-world integration examples for OpenAPI TypeScript with popular frameworks
+---
+
+OpenAPI TypeScript provides comprehensive examples demonstrating integration with various frameworks, libraries, and HTTP clients. All examples use the [Swagger Petstore API](https://petstore3.swagger.io) and include complete, working code.
+
+## Available Examples
+
+<CardGroup cols={2}>
+  <Card title="Angular" icon="angular" href="/examples/angular">
+    Integration with Angular using @angular/common/http
+  </Card>
+  <Card title="React Query" icon="react" href="/examples/react-query">
+    React with TanStack Query for data fetching
+  </Card>
+  <Card title="Next.js" icon="node" href="/examples/next-js">
+    Next.js App Router with server and client components
+  </Card>
+  <Card title="Nuxt" icon="vuejs" href="/examples/nuxt">
+    Nuxt 3 with official @hey-api/nuxt plugin
+  </Card>
+</CardGroup>
+
+## Additional Framework Examples
+
+The repository includes many more examples:
+
+- **Vue** - TanStack Query, Pinia Colada state management
+- **Svelte** - TanStack Svelte Query
+- **HTTP Clients** - Axios, Fetch, Ky, ofetch
+- **Backend** - Fastify server integration
+- **OpenAI** - OpenAI API integration
+
+## Example Structure
+
+Each example includes:
+
+1. **Configuration** - `openapi-ts.config.ts` with framework-specific setup
+2. **Generated Code** - Type-safe clients, SDKs, and schemas
+3. **Usage Examples** - Real components showing API integration
+4. **Complete Project** - Runnable application with dependencies
+
+## Running Examples Locally
+
+All examples are in the [GitHub repository](https://github.com/hey-api/openapi-ts/tree/main/examples):
+
+```bash
+# Clone the repository
+git clone https://github.com/hey-api/openapi-ts.git
+cd openapi-ts
+
+# Install dependencies
+pnpm install
+
+# Run a specific example
+pnpm example angular dev
+pnpm example react-query dev
+pnpm example next dev
+pnpm example nuxt dev
+```
+
+## Regenerating Client Code
+
+To regenerate the API client code for all examples:
+
+```bash
+pnpm examples:generate
+```
+
+This runs `openapi-ts` for each example based on their `openapi-ts.config.ts` configuration.
+
+## What's Next?
+
+Explore the framework-specific examples to see how to integrate OpenAPI TypeScript with your stack:
+
+<CardGroup cols={2}>
+  <Card title="Angular Example" href="/examples/angular" />
+  <Card title="React Query Example" href="/examples/react-query" />
+  <Card title="Next.js Example" href="/examples/next-js" />
+  <Card title="Nuxt Example" href="/examples/nuxt" />
+</CardGroup>

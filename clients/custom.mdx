@@ -1,0 +1,651 @@
+---
+title: "Custom Client"
+description: "Build your own HTTP client adapter for any library"
+---
+
+Create a custom HTTP client adapter to integrate any HTTP library with OpenAPI TypeScript. This guide shows you how to build adapters for popular libraries or create completely custom implementations.
+
+## Overview
+
+A custom client adapter must implement the `Client` interface from `@hey-api/client-core`, which provides:
+
+- HTTP method functions (GET, POST, PUT, PATCH, DELETE, etc.)
+- Request/response configuration
+- Authentication support
+- Body and query serialization
+- Type safety
+
+## Installation
+
+Install the custom client package:
+
+<CodeGroup>
+
+```bash npm
+npm install @hey-api/custom-client
+```
+
+```bash pnpm
+pnpm add @hey-api/custom-client
+```
+
+```bash yarn
+yarn add @hey-api/custom-client
+```
+
+```bash bun
+bun add @hey-api/custom-client
+```
+
+</CodeGroup>
+
+## Basic Structure
+
+A custom client implements the core client interface:
+
+```typescript
+import type { Client, Config } from '@hey-api/custom-client';
+
+export function createClient(config: Config = {}): Client {
+  // Store configuration
+  let _config = { ...config };
+
+  // Get configuration
+  const getConfig = (): Config => ({ ..._config });
+
+  // Set/update configuration
+  const setConfig = (config: Config): Config => {
+    _config = { ..._config, ...config };
+    return getConfig();
+  };
+
+  // Build URL with path and query parameters
+  const buildUrl = (options: any): string => {
+    // Implementation
+  };
+
+  // Main request function
+  const request = async (options: any) => {
+    // Implementation
+  };
+
+  // HTTP method helpers
+  const get = (options: any) => request({ ...options, method: 'GET' });
+  const post = (options: any) => request({ ...options, method: 'POST' });
+  const put = (options: any) => request({ ...options, method: 'PUT' });
+  const patch = (options: any) => request({ ...options, method: 'PATCH' });
+  const delete_ = (options: any) => request({ ...options, method: 'DELETE' });
+  const head = (options: any) => request({ ...options, method: 'HEAD' });
+  const options_ = (options: any) => request({ ...options, method: 'OPTIONS' });
+
+  return {
+    buildUrl,
+    getConfig,
+    setConfig,
+    request,
+    get,
+    post,
+    put,
+    patch,
+    delete: delete_,
+    head,
+    options: options_,
+  };
+}
+```
+
+## Example: Axios Adapter
+
+Here's a complete example of an Axios adapter:
+
+```typescript
+import type { AxiosInstance, AxiosError } from 'axios';
+import axios from 'axios';
+import type {
+  Client,
+  Config,
+  RequestOptions,
+  Auth,
+} from '@hey-api/custom-client';
+import {
+  buildClientParams,
+  jsonBodySerializer,
+} from '@hey-api/custom-client';
+
+interface AxiosConfig extends Config {
+  axios?: AxiosInstance;
+}
+
+export function createClient(config: AxiosConfig = {}): Client {
+  // Create or use existing Axios instance
+  const instance = config.axios || axios.create();
+
+  let _config: AxiosConfig = {
+    baseUrl: '',
+    bodySerializer: jsonBodySerializer.bodySerializer,
+    ...config,
+  };
+
+  const getConfig = (): Config => ({ ..._config });
+
+  const setConfig = (config: Config): Config => {
+    _config = { ..._config, ...config };
+    // Update Axios defaults
+    instance.defaults.baseURL = _config.baseUrl;
+    return getConfig();
+  };
+
+  const buildUrl = (options: RequestOptions): string => {
+    const { path, query, url } = options;
+    const baseUrl = options.baseUrl || _config.baseUrl || '';
+    
+    // Build path with parameters
+    let finalUrl = url;
+    if (path) {
+      Object.entries(path).forEach(([key, value]) => {
+        finalUrl = finalUrl.replace(`{${key}}`, String(value));
+      });
+    }
+
+    // Add query parameters
+    if (query && Object.keys(query).length > 0) {
+      const queryString = new URLSearchParams(
+        query as Record<string, string>
+      ).toString();
+      finalUrl += `?${queryString}`;
+    }
+
+    return `${baseUrl}${finalUrl}`;
+  };
+
+  const request: Client['request'] = async (options) => {
+    const url = buildUrl(options);
+    const method = (options.method || 'GET').toUpperCase();
+
+    try {
+      const response = await instance({
+        url,
+        method,
+        data: options.body,
+        headers: options.headers,
+        params: options.query,
+      });
+
+      return {
+        data: response.data,
+        error: undefined,
+        response,
+      };
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      return {
+        data: undefined,
+        error: axiosError.response?.data,
+        response: axiosError.response,
+      };
+    }
+  };
+
+  return {
+    buildUrl,
+    getConfig,
+    setConfig,
+    request,
+    get: (opts) => request({ ...opts, method: 'GET' }),
+    post: (opts) => request({ ...opts, method: 'POST' }),
+    put: (opts) => request({ ...opts, method: 'PUT' }),
+    patch: (opts) => request({ ...opts, method: 'PATCH' }),
+    delete: (opts) => request({ ...opts, method: 'DELETE' }),
+    head: (opts) => request({ ...opts, method: 'HEAD' }),
+    options: (opts) => request({ ...opts, method: 'OPTIONS' }),
+  };
+}
+```
+
+## Example: Superagent Adapter
+
+Adapter for the SuperAgent library:
+
+```typescript
+import * as superagent from 'superagent';
+import type { Client, Config, RequestOptions } from '@hey-api/custom-client';
+
+export function createClient(config: Config = {}): Client {
+  let _config = { ...config };
+
+  const getConfig = (): Config => ({ ..._config });
+  const setConfig = (config: Config): Config => {
+    _config = { ..._config, ...config };
+    return getConfig();
+  };
+
+  const buildUrl = (options: RequestOptions): string => {
+    const { path, query, url } = options;
+    const baseUrl = options.baseUrl || _config.baseUrl || '';
+    
+    let finalUrl = url;
+    if (path) {
+      Object.entries(path).forEach(([key, value]) => {
+        finalUrl = finalUrl.replace(`{${key}}`, String(value));
+      });
+    }
+
+    return `${baseUrl}${finalUrl}`;
+  };
+
+  const request: Client['request'] = async (options) => {
+    const url = buildUrl(options);
+    const method = (options.method || 'GET').toLowerCase() as
+      | 'get'
+      | 'post'
+      | 'put'
+      | 'patch'
+      | 'delete';
+
+    try {
+      let req = superagent[method](url);
+
+      // Add headers
+      if (options.headers) {
+        req = req.set(options.headers as Record<string, string>);
+      }
+
+      // Add query parameters
+      if (options.query) {
+        req = req.query(options.query);
+      }
+
+      // Add body
+      if (options.body) {
+        req = req.send(options.body);
+      }
+
+      const response = await req;
+
+      return {
+        data: response.body,
+        error: undefined,
+        response: {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        },
+      };
+    } catch (error: any) {
+      return {
+        data: undefined,
+        error: error.response?.body || error.message,
+        response: error.response
+          ? {
+              status: error.response.status,
+              statusText: error.response.statusText,
+              headers: error.response.headers,
+            }
+          : undefined,
+      };
+    }
+  };
+
+  return {
+    buildUrl,
+    getConfig,
+    setConfig,
+    request,
+    get: (opts) => request({ ...opts, method: 'GET' }),
+    post: (opts) => request({ ...opts, method: 'POST' }),
+    put: (opts) => request({ ...opts, method: 'PUT' }),
+    patch: (opts) => request({ ...opts, method: 'PATCH' }),
+    delete: (opts) => request({ ...opts, method: 'DELETE' }),
+    head: (opts) => request({ ...opts, method: 'HEAD' }),
+    options: (opts) => request({ ...opts, method: 'OPTIONS' }),
+  };
+}
+```
+
+## Helper Functions
+
+The `@hey-api/custom-client` package provides helper functions:
+
+### buildClientParams
+
+Build URL with path and query parameters:
+
+```typescript
+import { buildClientParams } from '@hey-api/custom-client';
+
+const params = buildClientParams({
+  path: { id: 123 },
+  query: { page: 1, limit: 10 },
+  url: '/users/{id}',
+});
+
+// params.url = '/users/123'
+// params.queryString = 'page=1&limit=10'
+```
+
+### Body Serializers
+
+Pre-built body serializers:
+
+```typescript
+import {
+  jsonBodySerializer,
+  formDataBodySerializer,
+  urlSearchParamsBodySerializer,
+} from '@hey-api/custom-client';
+
+// JSON serialization
+const jsonBody = jsonBodySerializer.bodySerializer({ name: 'John' });
+// '{"name":"John"}'
+
+// FormData serialization
+const formData = formDataBodySerializer.bodySerializer({
+  name: 'John',
+  file: fileBlob,
+});
+// FormData instance
+
+// URLSearchParams serialization
+const urlEncoded = urlSearchParamsBodySerializer.bodySerializer({
+  name: 'John',
+  email: 'john@example.com',
+});
+// 'name=John&email=john%40example.com'
+```
+
+## Authentication
+
+Implement authentication support:
+
+```typescript
+import type { Auth } from '@hey-api/custom-client';
+
+export function createClient(config: Config = {}): Client {
+  let _config = { ...config };
+
+  const getAuthToken = async (auth: Auth): Promise<string | undefined> => {
+    if (!_config.auth) return undefined;
+
+    const token =
+      typeof _config.auth === 'function'
+        ? await _config.auth(auth)
+        : _config.auth;
+
+    if (!token) return undefined;
+
+    // Handle different auth schemes
+    if (auth.scheme === 'bearer') {
+      return `Bearer ${token}`;
+    }
+    if (auth.scheme === 'basic') {
+      return `Basic ${btoa(token)}`;
+    }
+    return token;
+  };
+
+  const request: Client['request'] = async (options) => {
+    // Apply authentication
+    if (options.security) {
+      for (const auth of options.security) {
+        const token = await getAuthToken(auth);
+        if (token) {
+          const name = auth.name || 'Authorization';
+          if (auth.in === 'header') {
+            options.headers = {
+              ...options.headers,
+              [name]: token,
+            };
+          } else if (auth.in === 'query') {
+            options.query = {
+              ...options.query,
+              [name]: token,
+            };
+          }
+        }
+      }
+    }
+
+    // Make request...
+  };
+
+  return { /* ... */ };
+}
+```
+
+## Query Serialization
+
+Implement custom query serialization:
+
+```typescript
+import type { QuerySerializerOptions } from '@hey-api/custom-client';
+
+function serializeQuery(
+  query: Record<string, unknown>,
+  options?: QuerySerializerOptions
+): string {
+  const params = new URLSearchParams();
+
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+
+    if (Array.isArray(value)) {
+      // Handle array serialization
+      const style = options?.array?.style || 'form';
+      const explode = options?.array?.explode ?? true;
+
+      if (explode) {
+        value.forEach((v) => params.append(key, String(v)));
+      } else {
+        params.append(key, value.map(String).join(','));
+      }
+    } else if (typeof value === 'object') {
+      // Handle object serialization
+      const style = options?.object?.style || 'deepObject';
+      const explode = options?.object?.explode ?? true;
+
+      if (style === 'deepObject' && explode) {
+        Object.entries(value).forEach(([k, v]) => {
+          params.append(`${key}[${k}]`, String(v));
+        });
+      } else {
+        params.append(key, JSON.stringify(value));
+      }
+    } else {
+      params.append(key, String(value));
+    }
+  });
+
+  return params.toString();
+}
+```
+
+## TypeScript Types
+
+Define proper TypeScript types for your adapter:
+
+```typescript
+import type {
+  Auth,
+  Client as BaseClient,
+  Config as BaseConfig,
+  QuerySerializerOptions,
+} from '@hey-api/custom-client';
+
+export interface CustomConfig extends BaseConfig {
+  // Add custom options
+  customOption?: string;
+  timeout?: number;
+}
+
+export interface CustomClient extends BaseClient {
+  // Add custom methods
+  customMethod?: () => void;
+}
+
+export type { Auth, QuerySerializerOptions };
+```
+
+## Testing Your Adapter
+
+Test your custom adapter:
+
+```typescript
+import { describe, it, expect, vi } from 'vitest';
+import { createClient } from './my-adapter';
+
+describe('Custom Client', () => {
+  it('should make GET request', async () => {
+    const client = createClient({
+      baseUrl: 'https://api.example.com',
+    });
+
+    const { data, error } = await client.get({
+      url: '/users',
+    });
+
+    expect(error).toBeUndefined();
+    expect(data).toBeDefined();
+  });
+
+  it('should build URL with path parameters', () => {
+    const client = createClient({
+      baseUrl: 'https://api.example.com',
+    });
+
+    const url = client.buildUrl({
+      url: '/users/{id}',
+      path: { id: 123 },
+    });
+
+    expect(url).toBe('https://api.example.com/users/123');
+  });
+
+  it('should handle authentication', async () => {
+    const client = createClient({
+      baseUrl: 'https://api.example.com',
+      auth: async (auth) => {
+        if (auth.scheme === 'bearer') {
+          return 'test-token';
+        }
+      },
+    });
+
+    const { data } = await client.get({
+      url: '/protected',
+      security: [
+        {
+          type: 'http',
+          scheme: 'bearer',
+        },
+      ],
+    });
+
+    expect(data).toBeDefined();
+  });
+});
+```
+
+## Publishing Your Adapter
+
+To share your adapter with others:
+
+<Steps>
+
+<Step title="Create package.json">
+
+```json
+{
+  "name": "@hey-api/client-mylib",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "peerDependencies": {
+    "mylib": "^1.0.0"
+  },
+  "dependencies": {
+    "@hey-api/custom-client": "^1.0.0"
+  }
+}
+```
+
+</Step>
+
+<Step title="Build and test">
+
+```bash
+npm run build
+npm test
+```
+
+</Step>
+
+<Step title="Publish to npm">
+
+```bash
+npm publish
+```
+
+</Step>
+
+</Steps>
+
+## Best Practices
+
+<AccordionGroup>
+
+<Accordion title="Handle errors consistently">
+  Always return both `data` and `error` fields:
+
+  ```typescript
+  try {
+    const response = await makeRequest();
+    return { data: response.data, error: undefined };
+  } catch (error) {
+    return { data: undefined, error: error.message };
+  }
+  ```
+</Accordion>
+
+<Accordion title="Support all HTTP methods">
+  Implement all standard HTTP methods (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS).
+</Accordion>
+
+<Accordion title="Preserve type safety">
+  Use proper TypeScript types throughout your implementation:
+
+  ```typescript
+  const request: Client['request'] = async <TData = unknown>(
+    options: RequestOptions
+  ): Promise<{ data?: TData; error?: unknown }> => {
+    // Implementation
+  };
+  ```
+</Accordion>
+
+<Accordion title="Document configuration options">
+  Provide clear documentation for all configuration options and their defaults.
+</Accordion>
+
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Fetch Client" icon="globe" href="/clients/fetch">
+  Reference implementation
+</Card>
+
+<Card title="Axios Client" icon="arrow-right-arrow-left" href="/clients/axios">
+  Another adapter example
+</Card>
+
+<Card title="Client Core" icon="cube" href="https://github.com/hey-api/openapi-ts/tree/main/packages/openapi-ts/src/plugins/@hey-api/client-core">
+  Core client types and utilities
+</Card>
+
+<Card title="Authentication" icon="lock" href="/clients/custom#authentication">
+  Implement authentication
+</Card>
+
+</CardGroup>

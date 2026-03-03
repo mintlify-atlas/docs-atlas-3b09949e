@@ -1,0 +1,425 @@
+---
+title: Parser Configuration
+description: Transform and filter your OpenAPI specification before code generation
+---
+
+The `parser` option customizes how your OpenAPI specification is parsed and transformed before plugins process it.
+
+## Overview
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+  parser: {
+    filters: {
+      tags: {
+        include: ['users', 'posts'],
+      },
+    },
+    transforms: {
+      enums: 'root',
+    },
+  },
+});
+```
+
+## Filters
+
+Filters select a subset of your OpenAPI specification before it's passed to plugins.
+
+<ParamField path="parser.filters.operations" type="object">
+  Filter operations (endpoints) to include or exclude.
+
+  <Expandable title="Operations Filter">
+    <ParamField path="operations.include" type="string[]">
+      Process only operations matching these patterns.
+      
+      ```typescript
+      filters: {
+        operations: {
+          include: ['GET /api/v1/users', 'POST /api/v1/users'],
+        },
+      }
+      ```
+    </ParamField>
+
+    <ParamField path="operations.exclude" type="string[]">
+      Exclude operations matching these patterns.
+      
+      In case of conflicts, `exclude` takes precedence over `include`.
+      
+      ```typescript
+      filters: {
+        operations: {
+          exclude: ['DELETE /api/v1/admin/*'],
+        },
+      }
+      ```
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="parser.filters.tags" type="object">
+  Filter by OpenAPI tags.
+
+  <Expandable title="Tags Filter">
+    <ParamField path="tags.include" type="string[]">
+      Process only resources with these tags.
+      
+      ```typescript
+      filters: {
+        tags: {
+          include: ['users', 'posts'],
+        },
+      }
+      ```
+    </ParamField>
+
+    <ParamField path="tags.exclude" type="string[]">
+      Exclude resources with these tags.
+      
+      ```typescript
+      filters: {
+        tags: {
+          exclude: ['internal', 'deprecated'],
+        },
+      }
+      ```
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="parser.filters.schemas" type="object">
+  Filter schema definitions to include or exclude.
+
+  <Expandable title="Schemas Filter">
+    <ParamField path="schemas.include" type="string[]">
+      Process only these schema definitions.
+    </ParamField>
+
+    <ParamField path="schemas.exclude" type="string[]">
+      Exclude these schema definitions.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="parser.filters.parameters" type="object">
+  Filter parameter definitions.
+
+  <Expandable title="Parameters Filter">
+    <ParamField path="parameters.include" type="string[]">
+      Process only these parameters.
+    </ParamField>
+
+    <ParamField path="parameters.exclude" type="string[]">
+      Exclude these parameters.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="parser.filters.requestBodies" type="object">
+  Filter request body definitions.
+
+  <Expandable title="Request Bodies Filter">
+    <ParamField path="requestBodies.include" type="string[]">
+      Process only these request bodies.
+    </ParamField>
+
+    <ParamField path="requestBodies.exclude" type="string[]">
+      Exclude these request bodies.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="parser.filters.responses" type="object">
+  Filter response definitions.
+
+  <Expandable title="Responses Filter">
+    <ParamField path="responses.include" type="string[]">
+      Process only these responses.
+    </ParamField>
+
+    <ParamField path="responses.exclude" type="string[]">
+      Exclude these responses.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="parser.filters.deprecated" type="boolean" default={true}>
+  Include deprecated resources in the output.
+  
+  Set to `false` to exclude all resources marked as deprecated in your OpenAPI specification.
+
+  ```typescript
+  parser: {
+    filters: {
+      deprecated: false,
+    },
+  }
+  ```
+</ParamField>
+
+<ParamField path="parser.filters.orphans" type="boolean" default={false}>
+  Keep reusable components without any references from operations in the output.
+  
+  By default, unreferenced schemas are excluded.
+</ParamField>
+
+<ParamField path="parser.filters.preserveOrder" type="boolean" default={false}>
+  Preserve key order when processing your input. Disabled by default for performance.
+</ParamField>
+
+## Transforms
+
+Transforms modify or normalize the OpenAPI specification in standardized ways.
+
+<ParamField path="parser.transforms.enums" type="boolean | string | object" default={false}>
+  Control how enums are handled in your specification.
+  
+  Your input might contain two types of enums:
+  - **Root enums**: Defined as reusable components
+  - **Inline enums**: Nested within other schemas
+  
+  Only root enums are typically exported by plugins. Use this transform to promote inline enums to root level.
+
+  <Expandable title="Enums Transform Configuration">
+    <ParamField path="enums.enabled" type="boolean" default={true}>
+      Whether this transform is enabled.
+    </ParamField>
+
+    <ParamField path="enums.mode" type="string" default="root">
+      Controls enum handling:
+      - `'root'` — Promote inline enums to reusable root components
+      - `'inline'` — Keep all enums inline within schemas
+    </ParamField>
+
+    <ParamField path="enums.case" type="string" default="PascalCase">
+      Casing convention for generated enum names.
+      
+      Options: `'camelCase'`, `'PascalCase'`, `'snake_case'`, `'SCREAMING_SNAKE_CASE'`, `'preserve'`
+    </ParamField>
+
+    <ParamField path="enums.name" type="string | function" default="{{name}}Enum">
+      Customize the generated enum name. Use `{{name}}` placeholder or provide a function.
+    </ParamField>
+  </Expandable>
+
+  <CodeGroup>
+  ```typescript Boolean
+  parser: {
+    transforms: {
+      enums: true, // Enable with defaults (mode: 'root')
+    },
+  }
+  ```
+
+  ```typescript String
+  parser: {
+    transforms: {
+      enums: 'root', // Promote inline enums to root
+    },
+  }
+  ```
+
+  ```typescript Object
+  parser: {
+    transforms: {
+      enums: {
+        enabled: true,
+        mode: 'root',
+        case: 'PascalCase',
+        name: '{{name}}Enum',
+      },
+    },
+  }
+  ```
+  </CodeGroup>
+</ParamField>
+
+<ParamField path="parser.transforms.readWrite" type="boolean | object" default={true}>
+  Separate schemas for read (response) and write (request) operations.
+  
+  Schemas might contain read-only or write-only fields. This transform creates separate schemas to avoid asking users to provide read-only fields in requests or expecting write-only fields in responses.
+
+  <Expandable title="Read/Write Transform Configuration">
+    <ParamField path="readWrite.enabled" type="boolean" default={true}>
+      Whether this transform is enabled.
+    </ParamField>
+
+    <ParamField path="readWrite.requests" type="string | object" default="{{name}}Writable">
+      Configuration for request-specific schemas (containing write-only fields).
+      
+      <ParamField path="requests.case" type="string" default="preserve">
+        Casing convention for generated names.
+      </ParamField>
+      
+      <ParamField path="requests.name" type="string | function" default="{{name}}Writable">
+        Naming pattern for request schemas.
+      </ParamField>
+    </ParamField>
+
+    <ParamField path="readWrite.responses" type="string | object" default="{{name}}">
+      Configuration for response-specific schemas (containing read-only fields).
+      
+      <ParamField path="responses.case" type="string" default="preserve">
+        Casing convention for generated names.
+      </ParamField>
+      
+      <ParamField path="responses.name" type="string | function" default="{{name}}">
+        Naming pattern for response schemas.
+      </ParamField>
+    </ParamField>
+  </Expandable>
+
+  ```typescript
+  parser: {
+    transforms: {
+      readWrite: {
+        enabled: true,
+        requests: '{{name}}Input',
+        responses: '{{name}}Output',
+      },
+    },
+  }
+  ```
+</ParamField>
+
+<ParamField path="parser.transforms.propertiesRequiredByDefault" type="boolean" default={false}>
+  Treat all object properties as required by default unless explicitly marked as optional.
+  
+  By default (per OpenAPI spec), missing `required` keyword means no properties are required. Some specifications expect the opposite behavior.
+
+  ```typescript
+  parser: {
+    transforms: {
+      propertiesRequiredByDefault: true,
+    },
+  }
+  ```
+</ParamField>
+
+<ParamField path="parser.transforms.schemaName" type="string | function">
+  Rename schema component keys throughout the specification, automatically updating all `$ref` pointers.
+  
+  Useful when schema names are auto-generated or follow awkward naming conventions.
+
+  ```typescript
+  parser: {
+    transforms: {
+      schemaName: (name) => name.replace(/_v\d+_\d+_\d+_/, '_'),
+    },
+  }
+  ```
+</ParamField>
+
+## Pagination
+
+<ParamField path="parser.pagination.keywords" type="string[]" default="['after', 'before', 'cursor', 'offset', 'page', 'start']">
+  Array of keywords to identify pagination fields in schemas and parameters.
+  
+  These keywords help plugins detect paginated operations and generate appropriate code.
+
+  ```typescript
+  parser: {
+    pagination: {
+      keywords: ['page', 'pageSize', 'cursor', 'limit'],
+    },
+  }
+  ```
+</ParamField>
+
+## Validation
+
+<ParamField path="parser.validate_EXPERIMENTAL" type="boolean | string" default={false}>
+  **Experimental:** Validate the input OpenAPI specification before generating output.
+  
+  This is a lightweight, experimental feature with support added on an ad hoc basis.
+  
+  Options:
+  - `false` — No validation
+  - `true` or `'warn'` — Validate and warn about issues
+  - `'strict'` — Validate and fail on any issues
+
+  ```typescript
+  parser: {
+    validate_EXPERIMENTAL: 'warn',
+  }
+  ```
+</ParamField>
+
+## Examples
+
+### Filter to Specific Tags
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+  parser: {
+    filters: {
+      tags: {
+        include: ['users', 'posts'],
+      },
+    },
+  },
+});
+```
+
+### Exclude Deprecated Operations
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+  parser: {
+    filters: {
+      deprecated: false,
+    },
+  },
+});
+```
+
+### Promote Inline Enums
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+  parser: {
+    transforms: {
+      enums: {
+        enabled: true,
+        mode: 'root',
+        case: 'SCREAMING_SNAKE_CASE',
+        name: '{{name}}Enum',
+      },
+    },
+  },
+});
+```
+
+### Custom Schema Naming
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+  parser: {
+    transforms: {
+      // Remove version suffixes from schema names
+      schemaName: (name) => name.replace(/_v\d+$/, ''),
+    },
+  },
+});
+```

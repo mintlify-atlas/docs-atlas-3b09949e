@@ -1,0 +1,577 @@
+---
+title: "SDK Plugin"
+description: "Generate type-safe SDK functions for API operations"
+---
+
+The `@hey-api/sdk` plugin generates type-safe functions for each API operation in your OpenAPI specification. It works seamlessly with the TypeScript plugin to provide full type safety.
+
+## Installation
+
+The SDK plugin is included when you install `@hey-api/openapi-ts`:
+
+```bash
+npm install @hey-api/openapi-ts --save-dev
+```
+
+## Configuration
+
+Add the plugin to your `openapi-ts.config.ts`:
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/sdk',
+  ],
+});
+```
+
+## What It Generates
+
+The SDK plugin generates a `sdk.gen.ts` file containing type-safe functions for each API operation:
+
+<CodeGroup>
+
+```typescript Flat Functions (default)
+// sdk.gen.ts
+import { client } from './client.gen';
+import type { GetUsersData, GetUsersResponse, GetUsersErrors } from './types.gen';
+
+export const getUsers = <ThrowOnError extends boolean = false>(
+  parameters?: GetUsersData,
+  options?: Options<never, ThrowOnError>
+) => {
+  return client.get<GetUsersResponse, GetUsersErrors, ThrowOnError>({
+    url: '/users',
+    ...options,
+    ...parameters,
+  });
+};
+
+export const createUser = <ThrowOnError extends boolean = false>(
+  parameters: CreateUserData,
+  options?: Options<never, ThrowOnError>
+) => {
+  return client.post<CreateUserResponse, CreateUserErrors, ThrowOnError>({
+    url: '/users',
+    ...options,
+    ...parameters,
+  });
+};
+```
+
+```typescript Usage
+import { getUsers, createUser } from './client/sdk.gen';
+
+// Fetch users with type-safe parameters
+const { data, error } = await getUsers({
+  query: { limit: 10, offset: 0 },
+});
+
+if (error) {
+  console.error(error);
+} else {
+  console.log(data.users);
+}
+
+// Create a user
+const result = await createUser({
+  body: {
+    name: 'John Doe',
+    email: 'john@example.com',
+  },
+});
+```
+
+</CodeGroup>
+
+## Configuration Options
+
+### `operations`
+
+Define the structure of generated SDK operations.
+
+<ParamField path="operations" type="string | object" default="'flat'">
+  - `'flat'` - Standalone functions, no container (tree-shakeable)
+  - `'byTags'` - One class per operation tag
+  - `'single'` - All operations in a single class/container
+  - Custom function for full control
+</ParamField>
+
+<Tabs>
+  <Tab title="Flat (default)">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      operations: 'flat',
+    }
+    ```
+
+    Generates standalone functions:
+    ```typescript
+    import { getUsers, createUser } from './sdk.gen';
+
+    const { data } = await getUsers();
+    ```
+  </Tab>
+  <Tab title="By Tags">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      operations: {
+        strategy: 'byTags',
+        containerName: '{{name}}Service',
+      },
+    }
+    ```
+
+    Generates classes based on tags:
+    ```typescript
+    import { UsersService } from './sdk.gen';
+
+    const users = new UsersService();
+    const { data } = await users.getUsers();
+    ```
+  </Tab>
+  <Tab title="Single Container">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      operations: {
+        strategy: 'single',
+        containerName: 'ApiClient',
+        methods: 'instance',
+      },
+    }
+    ```
+
+    Generates a single class:
+    ```typescript
+    import { ApiClient } from './sdk.gen';
+
+    const api = new ApiClient();
+    const { data } = await api.getUsers();
+    ```
+  </Tab>
+</Tabs>
+
+#### Advanced Operations Configuration
+
+<ParamField path="operations.container" type="'class'" default="'class'">
+  Type of container for grouped operations (currently only supports `'class'`).
+</ParamField>
+
+<ParamField path="operations.containerName" type="string | function | object" default="'Sdk'">
+  Customize container names. For `'single'` strategy, sets the root container name. For `'byTags'`, transforms tag names.
+</ParamField>
+
+<ParamField path="operations.methods" type="'instance' | 'static'" default="'instance'">
+  - `'instance'` - Instance methods, requires instantiation: `new ClassName()`
+  - `'static'` - Static methods, no instantiation required: `ClassName.method()`
+</ParamField>
+
+<ParamField path="operations.nesting" type="'operationId' | 'id' | function" default="'operationId'">
+  - `'operationId'` - Split operationId by delimiters (e.g., `users.list` → `Users.list()`)
+  - `'id'` - Use operation id as-is, no nesting
+  - Custom function for full control
+</ParamField>
+
+<ParamField path="operations.nestingDelimiters" type="RegExp" default="/[.]/">
+  Delimiters for splitting operationId (only when `nesting: 'operationId'`).
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/sdk',
+  operations: {
+    strategy: 'byTags',
+    container: 'class',
+    containerName: '{{name}}Api',
+    methods: 'static',
+    nesting: 'operationId',
+    nestingDelimiters: /[./]/,
+    methodName: '{{name}}',
+    segmentName: '{{name}}',
+  },
+}
+```
+
+### `paramsStructure`
+
+Define how request parameters are structured in generated SDK methods.
+
+<ParamField path="paramsStructure" type="'grouped' | 'flat'" default="'grouped'">
+  - `'grouped'` - Separates parameters by transport layer (body, query, path, header)
+  - `'flat'` - Merges all parameters into a single object
+</ParamField>
+
+<Tabs>
+  <Tab title="Grouped (default)">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      paramsStructure: 'grouped',
+    }
+    ```
+
+    ```typescript
+    // Usage
+    await updateUser({
+      path: { userId: '123' },
+      body: { name: 'Jane' },
+      query: { notify: true },
+    });
+    ```
+  </Tab>
+  <Tab title="Flat">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      paramsStructure: 'flat',
+    }
+    ```
+
+    ```typescript
+    // Usage
+    await updateUser({
+      userId: '123', // path param
+      name: 'Jane', // body param
+      notify: true, // query param
+    });
+    ```
+  </Tab>
+</Tabs>
+
+### `responseStyle`
+
+**Note:** This feature works only with the Fetch client.
+
+Define the shape of the return value from SDK calls.
+
+<ParamField path="responseStyle" type="'fields' | 'data'" default="'fields'">
+  - `'fields'` - Returns multiple fields (data, error, response, etc.)
+  - `'data'` - Returns only the data field
+</ParamField>
+
+<Tabs>
+  <Tab title="Fields (default)">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      responseStyle: 'fields',
+    }
+    ```
+
+    ```typescript
+    const { data, error, response } = await getUsers();
+    
+    if (error) {
+      console.error(error);
+    } else {
+      console.log(data);
+    }
+    ```
+  </Tab>
+  <Tab title="Data Only">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      responseStyle: 'data',
+    }
+    ```
+
+    ```typescript
+    try {
+      const data = await getUsers();
+      console.log(data);
+    } catch (error) {
+      console.error(error);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### `client`
+
+Use an internal client instance to send HTTP requests.
+
+<ParamField path="client" type="string | boolean" default="true">
+  - `true` - Automatically choose the client from your defined plugins (defaults to `@hey-api/client-fetch`)
+  - Client plugin name (e.g., `'@hey-api/client-axios'`)
+  - `false` - Don't use an internal client
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/sdk',
+  client: '@hey-api/client-axios',
+}
+```
+
+### `auth`
+
+Include authentication mechanisms in generated functions.
+
+<ParamField path="auth" type="boolean" default="true">
+  Disable if you're handling auth yourself or defining it globally on the client.
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/sdk',
+  auth: false, // Reduce generated code size
+}
+```
+
+### `transformer`
+
+Transform response data before returning (e.g., convert ISO strings to Date objects).
+
+<ParamField path="transformer" type="string | boolean" default="false">
+  - `true` - Automatically choose transformer from your defined plugins
+  - Transformer plugin name (e.g., `'@hey-api/transformers'`)
+  - `false` - No transformation
+</ParamField>
+
+<Warning>
+  Transformation adds runtime overhead. Only use when necessary.
+</Warning>
+
+```typescript
+{
+  name: '@hey-api/sdk',
+  transformer: '@hey-api/transformers',
+}
+```
+
+### `validator`
+
+Validate request and/or response data against schema.
+
+<ParamField path="validator" type="string | boolean | object" default="false">
+  - `true` - Automatically choose validator from your defined plugins
+  - Validator plugin name (e.g., `'@hey-api/zod'`)
+  - Object with separate `request` and `response` validation settings
+  - `false` - No validation
+</ParamField>
+
+<Warning>
+  Validation adds runtime overhead. Only use when absolutely necessary.
+</Warning>
+
+<Tabs>
+  <Tab title="Boolean">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      validator: true, // Auto-detect validator plugin
+    }
+    ```
+  </Tab>
+  <Tab title="String">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      validator: '@hey-api/zod',
+    }
+    ```
+  </Tab>
+  <Tab title="Object">
+    ```typescript
+    {
+      name: '@hey-api/sdk',
+      validator: {
+        request: '@hey-api/zod', // Validate requests
+        response: false, // Don't validate responses
+      },
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### `examples`
+
+Generate code examples for SDK operations and attach them to the input source.
+
+<ParamField path="examples" type="boolean | object" default="false">
+  Set to `false` to disable example generation entirely, or provide an object for fine-grained control.
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/sdk',
+  examples: true,
+}
+```
+
+## Common Patterns
+
+### Basic API Client
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/client-fetch',
+    '@hey-api/sdk',
+  ],
+});
+```
+
+### Class-Based SDK with Static Methods
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/client-fetch',
+    {
+      name: '@hey-api/sdk',
+      operations: {
+        strategy: 'single',
+        containerName: 'ApiClient',
+        methods: 'static',
+      },
+    },
+  ],
+});
+```
+
+```typescript
+// Usage
+import { ApiClient } from './client/sdk.gen';
+
+const { data } = await ApiClient.getUsers();
+```
+
+### Service-Based Architecture
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/client-fetch',
+    {
+      name: '@hey-api/sdk',
+      operations: {
+        strategy: 'byTags',
+        containerName: '{{name}}Service',
+        methods: 'instance',
+      },
+    },
+  ],
+});
+```
+
+```typescript
+// Usage
+import { UsersService, PostsService } from './client/sdk.gen';
+
+const users = new UsersService();
+const posts = new PostsService();
+
+const { data: userData } = await users.list();
+const { data: postData } = await posts.list();
+```
+
+### Flat Structure with Validation
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/client-fetch',
+    '@hey-api/zod',
+    {
+      name: '@hey-api/sdk',
+      operations: 'flat',
+      paramsStructure: 'flat',
+      validator: {
+        request: '@hey-api/zod',
+        response: false, // Skip response validation for performance
+      },
+    },
+  ],
+});
+```
+
+### With Transformers
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/client-fetch',
+    '@hey-api/transformers',
+    {
+      name: '@hey-api/sdk',
+      transformer: '@hey-api/transformers',
+    },
+  ],
+});
+```
+
+## Migration from Legacy Options
+
+<Warning>
+  The following options are deprecated. Use the `operations` object instead.
+</Warning>
+
+| Deprecated Option | New Equivalent |
+|------------------|----------------|
+| `asClass: true` | `operations: { strategy: 'byTags' }` |
+| `instance: true` | `operations: { strategy: 'single', methods: 'instance' }` |
+| `classNameBuilder` | `operations: { containerName }` |
+| `methodNameBuilder` | `operations: { methodName }` |
+| `operationId: true` | `operations: { nesting: 'operationId' }` |
+| `operationId: false` | `operations: { nesting: 'id' }` |
+| `classStructure: 'auto'` | `operations: { nesting: 'operationId' }` |
+| `classStructure: 'off'` | `operations: { nesting: 'id' }` |
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="HTTP Clients" icon="globe" href="/clients/overview">
+  Choose an HTTP client for making requests.
+</Card>
+
+<Card title="Transformers" icon="arrow-right-arrow-left" href="/core/transformers">
+  Transform response data at runtime.
+</Card>
+
+<Card title="Validators" icon="check-circle" href="/validators/overview">
+  Validate request and response data.
+</Card>
+
+<Card title="State Management" icon="database" href="/state-management/overview">
+  Integrate with TanStack Query or Pinia Colada.
+</Card>
+
+</CardGroup>

@@ -1,0 +1,523 @@
+---
+title: Nuxt Example
+description: Integrate OpenAPI TypeScript with Nuxt 3 using the official @hey-api/nuxt plugin
+---
+
+This example demonstrates how to use OpenAPI TypeScript with Nuxt 3, leveraging the official `@hey-api/nuxt` plugin for seamless integration with Nuxt's composables.
+
+## Configuration
+
+### Nuxt Config
+
+Configure the Hey API plugin directly in `nuxt.config.ts`:
+
+```typescript nuxt.config.ts
+export default defineNuxtConfig({
+  compatibilityDate: '2024-11-01',
+  devtools: {
+    enabled: true,
+  },
+  future: {
+    compatibilityVersion: 4,
+  },
+  heyApi: {
+    config: {
+      input:
+        'https://raw.githubusercontent.com/swagger-api/swagger-petstore/master/src/main/resources/openapi.yaml',
+      plugins: [
+        '@hey-api/schemas',
+        {
+          name: '@hey-api/sdk',
+          transformer: true,
+          validator: true,
+        },
+        {
+          enums: 'javascript',
+          name: '@hey-api/typescript',
+        },
+        '@hey-api/transformers',
+        'zod',
+      ],
+    },
+  },
+  modules: ['@hey-api/nuxt'],
+});
+```
+
+Key features:
+- Configuration embedded in `nuxt.config.ts`
+- Automatic client generation on dev server start
+- No separate `openapi-ts.config.ts` needed
+- `transformer: true` - Enable data transformation
+- `validator: true` - Runtime validation with Zod
+
+### Package Dependencies
+
+```json package.json
+{
+  "dependencies": {
+    "@hey-api/nuxt": "latest",
+    "nuxt": "^3.14.0",
+    "vue": "^3.5.0",
+    "zod": "^4.0.0"
+  },
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview"
+  }
+}
+```
+
+## Application Setup
+
+### App Configuration
+
+Configure the global client in `app.vue`:
+
+```vue app.vue
+<script setup lang="ts">
+import { client } from '#hey-api/client.gen';
+
+// configure internal service client
+client.setConfig({
+  auth: () => {
+    // fetch auth token
+    return undefined;
+  },
+  // set default base url for requests
+  baseURL: 'https://petstore3.swagger.io/api/v3',
+  // set default headers for requests
+  headers: {
+    Authorization: 'Bearer <token_from_service_client>',
+  },
+  onRequest: () => {
+    console.log('onRequest: global');
+  },
+  onResponse: () => {
+    console.log('onResponse: global');
+  },
+});
+</script>
+
+<template>
+  <div>
+    <NuxtRouteAnnouncer />
+    <Home />
+  </div>
+</template>
+```
+
+## Usage
+
+### Component with Multiple Composables
+
+Nuxt provides multiple composables for different use cases:
+
+```vue components/home.vue
+<script setup lang="ts">
+const name = ref('foo');
+const petId = ref(BigInt(8));
+const status = ref<NonNullable<FindPetsByStatusData['query']>['status']>('available');
+
+function incrementPetId() {
+  petId.value++;
+}
+
+function changeStatus() {
+  status.value = status.value === 'available' ? 'pending' : 'available';
+}
+
+const query = computed(() => ({
+  status: status.value,
+}));
+
+/**
+ * useAsyncData
+ * 
+ * During SSR data is fetched only on the server side and transferred to the
+ * client.
+ */
+const asyncData = await getPetById({
+  asyncDataOptions: {
+    default: () => ({
+      name: 'Default Pet',
+      photoUrls: [],
+    }),
+    watch: [petId],
+  },
+  composable: 'useAsyncData',
+  key: 'item',
+  path: {
+    petId,
+  },
+});
+
+watch(asyncData.data, (newPet) => {
+  console.log('pet', newPet);
+});
+
+await findPetsByStatus({
+  asyncDataOptions: {
+    watch: [status],
+  },
+  composable: 'useAsyncData',
+  query,
+});
+
+/**
+ * useAsyncData + useRequestFetch
+ * 
+ * This will forward the user's headers to the event handler.
+ */
+const requestFetch = useRequestFetch();
+const asyncDataWithRequestFetch = await getPetById({
+  $fetch: requestFetch,
+  composable: 'useAsyncData',
+  path: {
+    petId: BigInt(8),
+  },
+});
+
+/**
+ * useFetch
+ * 
+ * You can also use useFetch as shortcut of useAsyncData + $fetch.
+ */
+const fetch = await getPetById({
+  composable: 'useFetch',
+  path: {
+    petId: BigInt(8),
+  },
+});
+
+/**
+ * useLazyAsyncData
+ * 
+ * Navigation will occur before fetching is complete. Handle 'pending' and
+ * 'error' states directly within your component's template.
+ */
+const lazyAsyncData = await getPetById({
+  composable: 'useLazyAsyncData',
+  key: 'count',
+  path: {
+    petId: BigInt(8),
+  },
+});
+
+watch(lazyAsyncData.data, (newPet) => {
+  if (newPet) {
+    console.log(newPet.name);
+  }
+});
+
+/**
+ * useLazyFetch
+ * 
+ * Navigation will occur before fetching is complete.
+ */
+const lazyFetch = await getPetById({
+  composable: 'useLazyFetch',
+  path: {
+    petId: BigInt(8),
+  },
+});
+
+watch(lazyFetch.data, (newPet) => {
+  if (newPet) {
+    console.log(newPet.name);
+  }
+});
+
+/**
+ * $fetch
+ * 
+ * Direct fetch without SSR hydration.
+ */
+async function handleFetch() {
+  try {
+    const result = await getPetById({
+      composable: '$fetch',
+      onRequest: [
+        () => {
+          console.log('onRequest: local');
+        },
+      ],
+      onResponse: [
+        () => {
+          console.log('onResponse: local');
+        },
+      ],
+      path: {
+        petId,
+      },
+    });
+    console.log(result);
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+async function addNewPet() {
+  name.value = name.value === 'foo' ? 'bar' : 'foo';
+
+  const pet = await addPet({
+    body: {
+      category: {
+        id: BigInt(0),
+        name: 'cats',
+      },
+      id: BigInt(0),
+      name: 'doggy',
+      photoUrls: ['string'],
+      status: 'available',
+      tags: [
+        {
+          id: BigInt(0),
+          name: 'string',
+        },
+      ],
+    },
+    composable: '$fetch',
+  });
+
+  console.log('Added new pet:', pet);
+}
+</script>
+
+<template>
+  <h1>Get Random Pet Nuxt APIs</h1>
+  <div>
+    <button @click="handleFetch" type="button">$fetch</button>
+    <button @click="incrementPetId" type="button">increment petId</button>
+    <button @click="changeStatus" type="button">change status</button>
+    <button @click="addNewPet" type="button">add pet</button>
+    <div>
+      <p>id: {{ petId }}</p>
+      <p>name: {{ name }}</p>
+      <p>status: {{ status }}</p>
+    </div>
+  </div>
+</template>
+```
+
+## Nuxt Composables
+
+The `@hey-api/nuxt` plugin generates SDK methods that work with all Nuxt data fetching composables:
+
+### useAsyncData
+
+Fetch data during SSR and hydrate on client:
+
+```typescript
+const { data, pending, error } = await getPetById({
+  composable: 'useAsyncData',
+  key: 'pet-detail',
+  path: { petId: 1 },
+  asyncDataOptions: {
+    // Watch reactive values
+    watch: [petId],
+    // Default value while loading
+    default: () => ({ name: 'Loading...', photoUrls: [] }),
+  },
+});
+```
+
+### useFetch
+
+Shorthand for `useAsyncData` + `$fetch`:
+
+```typescript
+const { data } = await getPetById({
+  composable: 'useFetch',
+  path: { petId: 1 },
+});
+```
+
+### useLazyAsyncData
+
+Non-blocking data fetching:
+
+```typescript
+const { data, pending } = await getPetById({
+  composable: 'useLazyAsyncData',
+  key: 'pet-lazy',
+  path: { petId: 1 },
+});
+
+// Navigation happens before data is loaded
+// Handle pending state in template
+```
+
+### useLazyFetch
+
+Shorthand for `useLazyAsyncData` + `$fetch`:
+
+```typescript
+const { data, pending } = await getPetById({
+  composable: 'useLazyFetch',
+  path: { petId: 1 },
+});
+```
+
+### $fetch
+
+Direct fetch without SSR hydration:
+
+```typescript
+const pet = await getPetById({
+  composable: '$fetch',
+  path: { petId: 1 },
+  onRequest: [() => console.log('Fetching...')],
+  onResponse: [(ctx) => console.log('Done', ctx.response)],
+});
+```
+
+## Advanced Features
+
+### Request Forwarding
+
+Forward user headers to server routes:
+
+```typescript
+const requestFetch = useRequestFetch();
+
+const { data } = await getPetById({
+  $fetch: requestFetch,
+  composable: 'useAsyncData',
+  path: { petId: 1 },
+});
+```
+
+### Reactive Queries
+
+Watch reactive values and refetch automatically:
+
+```typescript
+const status = ref('available');
+
+await findPetsByStatus({
+  composable: 'useAsyncData',
+  query: computed(() => ({ status: status.value })),
+  asyncDataOptions: {
+    watch: [status],
+  },
+});
+
+// Changing status.value automatically refetches
+status.value = 'pending';
+```
+
+### Data Transformation
+
+With `transformer: true`, dates are automatically converted:
+
+```typescript
+const { data } = await getPetById({
+  composable: 'useFetch',
+  path: { petId: 1 },
+});
+
+// data.createdAt is a Date object, not a string
+console.log(data.createdAt instanceof Date); // true
+```
+
+### Runtime Validation
+
+With `validator: true`, responses are validated:
+
+```typescript
+const { data, error } = await getPetById({
+  composable: 'useFetch',
+  path: { petId: 1 },
+});
+
+// If response doesn't match schema, error is set
+if (error.value) {
+  console.log('Validation failed:', error.value);
+}
+```
+
+## Key Features
+
+### Type Safety
+
+Full TypeScript support with Nuxt composables:
+
+```typescript
+// Return type is AsyncData<Pet>
+const { data } = await getPetById({
+  composable: 'useAsyncData',
+  path: { petId: 1 },
+});
+
+// data is Ref<Pet | null>
+const name = computed(() => data.value?.name ?? 'Unknown');
+```
+
+### SSR Support
+
+Seamless server-side rendering:
+
+```typescript
+// Fetched on server during SSR
+// Hydrated on client automatically
+const { data } = await getPetById({
+  composable: 'useAsyncData',
+  path: { petId: 1 },
+});
+```
+
+### Auto Imports
+
+SDK methods are auto-imported:
+
+```vue
+<script setup lang="ts">
+// No imports needed - auto-imported by Nuxt
+const { data } = await getPetById({ ... });
+const pets = await findPetsByStatus({ ... });
+</script>
+```
+
+## Running the Example
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/hey-api/openapi-ts.git
+    cd openapi-ts
+    ```
+  </Step>
+  
+  <Step title="Install dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+  
+  <Step title="Run the Nuxt example">
+    ```bash
+    pnpm example nuxt dev
+    ```
+  </Step>
+  
+  <Step title="Open in browser">
+    Navigate to `http://localhost:3000`
+  </Step>
+</Steps>
+
+## Full Example
+
+View the complete example in the repository:
+
+[Nuxt Example on GitHub](https://github.com/hey-api/openapi-ts/tree/main/examples/openapi-ts-nuxt)
+
+## Learn More
+
+<CardGroup cols={2}>
+  <Card title="Nuxt Plugin" href="/integrations/nuxt" />
+  <Card title="SDK Plugin" href="/plugins/sdk" />
+  <Card title="Transformers Plugin" href="/plugins/transformers" />
+  <Card title="Examples Overview" href="/examples/overview" />
+</CardGroup>

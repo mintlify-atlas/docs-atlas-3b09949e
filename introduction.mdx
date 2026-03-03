@@ -1,0 +1,183 @@
+---
+title: Introduction
+description: OpenAPI to TypeScript codegen. Production-ready SDKs, Zod schemas, TanStack Query hooks, and 20+ plugins.
+---
+
+<img
+  className="block dark:hidden"
+  src="https://heyapi.dev/assets/.gen/openapi-ts-hero-640w.png"
+  alt="OpenAPI TypeScript Hero"
+/>
+<img
+  className="hidden dark:block"
+  src="https://heyapi.dev/assets/.gen/openapi-ts-hero-640w.png"
+  alt="OpenAPI TypeScript Hero"
+/>
+
+## What is OpenAPI TypeScript?
+
+OpenAPI TypeScript is a powerful code generator that transforms your OpenAPI specifications into production-ready TypeScript code. Used by Vercel, OpenCode, and PayPal, it's the OpenAPI codegen that just works.
+
+Generate type-safe SDKs, Zod schemas, TanStack Query hooks, or choose from 20+ other plugins to eliminate third-party boilerplate and accelerate your development workflow.
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start"
+    icon="bolt"
+    href="/quickstart"
+  >
+    Get up and running in under 60 seconds with npx
+  </Card>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install with npm, pnpm, yarn, or bun
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/configuration/overview"
+  >
+    Customize your code generation with powerful options
+  </Card>
+  <Card
+    title="Plugins"
+    icon="puzzle-piece"
+    href="/configuration/plugins"
+  >
+    Explore 20+ plugins for schemas, hooks, and more
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<AccordionGroup>
+  <Accordion title="Production-Ready Code">
+    Generate clean, type-safe TypeScript code that compiles without errors. OpenAPI TypeScript produces code that's ready for production use, with proper error handling and type inference.
+  </Accordion>
+
+  <Accordion title="Universal Compatibility">
+    Works in any Node.js 20+ environment and accepts any valid OpenAPI specification (OpenAPI 2.0, 3.0, 3.1). Support for both JSON and YAML formats.
+  </Accordion>
+
+  <Accordion title="Multiple HTTP Clients">
+    Choose from multiple HTTP client implementations:
+    - **@hey-api/client-fetch** - Native Fetch API
+    - **@hey-api/client-axios** - Axios client
+    - **@hey-api/client-angular** - Angular HttpClient
+    - **@hey-api/client-next** - Next.js optimized
+    - **@hey-api/client-nuxt** - Nuxt optimized
+    - **@hey-api/client-ky** - Ky client
+    - **@hey-api/client-ofetch** - ofetch client
+  </Accordion>
+
+  <Accordion title="Powerful Plugin System">
+    Over 20 plugins to reduce third-party boilerplate:
+    - **Type Generation**: TypeScript interfaces and types
+    - **Schema Validation**: Zod, Valibot, JSON Schema
+    - **Data Fetching**: TanStack Query, Pinia Colada, SWR
+    - **Framework Integration**: Angular, Fastify, and more
+    
+    The plugin system is highly customizable and extensible.
+  </Accordion>
+
+  <Accordion title="Hey API Registry Integration">
+    Sync with Hey API Registry for centralized OpenAPI specification management. Sign up at [app.heyapi.dev](https://app.heyapi.dev) to manage your API specifications in the cloud.
+  </Accordion>
+</AccordionGroup>
+
+## How It Works
+
+OpenAPI TypeScript follows a simple three-step process:
+
+<Steps>
+  <Step title="Provide OpenAPI Specification">
+    Point to your OpenAPI specification file (local path, URL, or object). Supports OpenAPI 2.0, 3.0, and 3.1 in JSON or YAML format.
+    
+    ```bash
+    npx @hey-api/openapi-ts -i ./openapi.json -o src/client
+    ```
+  </Step>
+
+  <Step title="Configure Plugins">
+    Select which plugins to use for code generation. By default, generates TypeScript types and SDK, but you can add schemas, hooks, and more.
+    
+    ```typescript
+    export default defineConfig({
+      input: './openapi.json',
+      output: 'src/client',
+      plugins: [
+        '@hey-api/client-fetch',
+        '@hey-api/sdk',
+        '@hey-api/typescript',
+        'zod',
+      ],
+    });
+    ```
+  </Step>
+
+  <Step title="Generate & Use">
+    Run the generator and import the generated code in your application. All types are automatically inferred and type-safe.
+    
+    ```typescript
+    import { client } from './client';
+    import { getPets } from './client/sdk.gen';
+    
+    client.setConfig({
+      baseUrl: 'https://api.example.com',
+    });
+    
+    const { data, error } = await getPets();
+    ```
+  </Step>
+</Steps>
+
+## Why OpenAPI TypeScript?
+
+<Note>
+  "OpenAPI codegen that just works." — Guillermo Rauch, CEO of Vercel
+</Note>
+
+OpenAPI TypeScript stands out for its reliability, flexibility, and production-readiness:
+
+- **Type Safety**: Full TypeScript support with accurate type inference
+- **Framework Agnostic**: Works with React, Vue, Angular, Svelte, and more
+- **Battle Tested**: Used by major companies like Vercel, OpenCode, and PayPal
+- **Active Development**: Regular updates with new features and improvements
+- **Open Source**: MIT licensed with a thriving community
+- **Extensible**: Build custom plugins to fit your specific needs
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Try the Quick Start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Generate your first client in under a minute
+  </Card>
+  <Card
+    title="Explore Examples"
+    icon="code"
+    href="https://stackblitz.com/edit/hey-api-example?file=openapi-ts.config.ts"
+  >
+    See OpenAPI TypeScript in action with live examples
+  </Card>
+  <Card
+    title="Read the Docs"
+    icon="book"
+    href="https://heyapi.dev"
+  >
+    Explore comprehensive documentation and guides
+  </Card>
+  <Card
+    title="Join the Community"
+    icon="users"
+    href="https://github.com/hey-api/openapi-ts"
+  >
+    Contribute or ask questions on GitHub
+  </Card>
+</CardGroup>

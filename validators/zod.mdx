@@ -1,0 +1,511 @@
+---
+title: Zod Plugin
+description: Generate Zod validation schemas from OpenAPI specifications
+---
+
+The Zod plugin generates [Zod](https://zod.dev) schemas from your OpenAPI specification. Zod is a TypeScript-first schema validation library with static type inference, zero dependencies, and excellent developer experience.
+
+## Installation
+
+Install the required dependencies:
+
+```bash
+npm install zod @hey-api/openapi-ts
+```
+
+## Configuration
+
+Add the Zod plugin to your `openapi-ts.config.ts`:
+
+```ts openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'path/to/openapi.json',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/zod',
+      // Configuration options
+    },
+  ],
+});
+```
+
+## Compatibility Versions
+
+The Zod plugin supports multiple Zod versions through the `compatibilityVersion` option:
+
+<Tabs>
+  <Tab title="Zod 4 (Default)">
+    Generates schemas compatible with [Zod 4](https://zod.dev):
+
+    ```ts
+    {
+      name: '@hey-api/zod',
+      compatibilityVersion: 4,
+    }
+    ```
+
+    The plugin auto-detects your installed Zod version and uses version 4 by default if Zod 4.x is installed.
+  </Tab>
+  <Tab title="Zod 3">
+    Generates schemas compatible with [Zod 3](https://v3.zod.dev/):
+
+    ```ts
+    {
+      name: '@hey-api/zod',
+      compatibilityVersion: 3,
+    }
+    ```
+  </Tab>
+  <Tab title="Zod Mini">
+    Generates schemas compatible with [Zod Mini](https://zod.dev/packages/mini), a minimal subset optimized for bundle size:
+
+    ```ts
+    {
+      name: '@hey-api/zod',
+      compatibilityVersion: 'mini',
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  The plugin automatically detects your installed Zod version and warns you if there's a mismatch with your configured `compatibilityVersion`.
+</Note>
+
+## Schema Generation
+
+### Definitions
+
+Generate schemas for reusable component definitions:
+
+```ts
+{
+  name: '@hey-api/zod',
+  definitions: true,  // Enable definitions (default)
+}
+```
+
+Customize definition schema names and casing:
+
+```ts
+{
+  name: '@hey-api/zod',
+  definitions: {
+    enabled: true,
+    name: 'z{{name}}',  // Naming pattern (default)
+    case: 'camelCase',  // Identifier casing
+  },
+}
+```
+
+**Generated output:**
+
+```ts zod.gen.ts
+import { z } from 'zod';
+
+/**
+ * A pet in the pet store
+ */
+export const zPet = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  status: z.enum(['available', 'pending', 'sold']).optional(),
+});
+```
+
+### Requests
+
+Generate validators for API request data (body, query, path, headers):
+
+```ts
+{
+  name: '@hey-api/zod',
+  requests: {
+    enabled: true,
+    name: 'z{{name}}Data',  // Naming pattern
+    case: 'camelCase',
+  },
+}
+```
+
+**Generated output:**
+
+```ts zod.gen.ts
+export const zGetPetByIdData = z.object({
+  path: z.object({
+    petId: z.number().int(),
+  }),
+  query: z.object({
+    includeDetails: z.boolean().optional(),
+  }).optional(),
+});
+```
+
+### Responses
+
+Generate validators for API responses:
+
+```ts
+{
+  name: '@hey-api/zod',
+  responses: {
+    enabled: true,
+    name: 'z{{name}}Response',  // Naming pattern
+    case: 'camelCase',
+  },
+}
+```
+
+**Generated output:**
+
+```ts zod.gen.ts
+export const zGetPetByIdResponse = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  status: z.enum(['available', 'pending', 'sold']).optional(),
+});
+```
+
+### Webhooks
+
+Generate validators for webhook payloads:
+
+```ts
+{
+  name: '@hey-api/zod',
+  webhooks: {
+    enabled: true,
+    name: 'z{{name}}WebhookRequest',
+    case: 'camelCase',
+  },
+}
+```
+
+## Type Inference
+
+Generate TypeScript types from Zod schemas:
+
+```ts
+{
+  name: '@hey-api/zod',
+  types: {
+    infer: true,  // Generate inferred types
+  },
+}
+```
+
+Configure type generation per schema category:
+
+```ts
+{
+  name: '@hey-api/zod',
+  definitions: {
+    types: {
+      infer: {
+        enabled: true,
+        name: '{{name}}ZodType',  // Naming pattern
+        case: 'PascalCase',       // Type name casing
+      },
+    },
+  },
+  requests: {
+    types: {
+      infer: {
+        enabled: true,
+        name: '{{name}}DataZodType',
+      },
+    },
+  },
+}
+```
+
+**Generated output:**
+
+```ts zod.gen.ts
+import { z } from 'zod';
+
+export const zPet = z.object({
+  id: z.number().int(),
+  name: z.string(),
+});
+
+// Inferred TypeScript type
+export type PetZodType = z.infer<typeof zPet>;
+```
+
+## Date Handling
+
+Configure how date and datetime values are validated:
+
+```ts
+{
+  name: '@hey-api/zod',
+  dates: {
+    local: false,   // Allow unqualified datetimes (default: false)
+    offset: false,  // Include timezone offset (default: false)
+  },
+}
+```
+
+<Tabs>
+  <Tab title="Default (ISO with timezone)">
+    ```ts
+    {
+      dates: {
+        local: false,
+        offset: false,
+      },
+    }
+    ```
+
+    Generates: `z.iso().datetime()`
+
+    Validates: `2024-01-15T12:30:00Z`
+  </Tab>
+  <Tab title="With Offset">
+    ```ts
+    {
+      dates: {
+        offset: true,
+      },
+    }
+    ```
+
+    Generates: `z.iso().datetime({ offset: true })`
+
+    Validates: `2024-01-15T12:30:00+05:30`
+  </Tab>
+  <Tab title="Local (No Timezone)">
+    ```ts
+    {
+      dates: {
+        local: true,
+      },
+    }
+    ```
+
+    Generates: `z.iso().datetime({ local: true })`
+
+    Validates: `2024-01-15T12:30:00`
+  </Tab>
+</Tabs>
+
+## Metadata Support
+
+Enable Zod metadata for additional schema information:
+
+```ts
+{
+  name: '@hey-api/zod',
+  metadata: true,  // Enable metadata (default: false)
+}
+```
+
+Metadata is useful for documentation, code generation, AI structured outputs, and form validation.
+
+## Usage Examples
+
+### Validating API Requests
+
+```ts
+import { zCreatePetData } from './client/zod.gen';
+
+// Validate request data
+const result = await zCreatePetData.safeParseAsync({
+  body: {
+    name: 'Fluffy',
+    status: 'available',
+  },
+});
+
+if (result.success) {
+  // Data is valid and typed
+  await fetch('/api/pets', {
+    method: 'POST',
+    body: JSON.stringify(result.data.body),
+  });
+} else {
+  // Handle validation errors
+  console.error(result.error.errors);
+}
+```
+
+### Validating API Responses
+
+```ts
+import { zGetPetByIdResponse } from './client/zod.gen';
+
+const response = await fetch('/api/pets/123');
+const data = await response.json();
+
+// Validate and parse response
+const pet = await zGetPetByIdResponse.parseAsync(data);
+// pet is now fully typed: { id: number; name: string; status?: string }
+```
+
+### Type Inference
+
+```ts
+import { z } from 'zod';
+import { zPet } from './client/zod.gen';
+
+// Infer TypeScript type from Zod schema
+type Pet = z.infer<typeof zPet>;
+
+const pet: Pet = {
+  id: 1,
+  name: 'Fluffy',
+};
+```
+
+### Form Validation with React Hook Form
+
+```tsx
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zCreatePetData } from './client/zod.gen';
+
+// Extract the body schema from the request data schema
+const CreatePetSchema = zCreatePetData.shape.body;
+type CreatePetForm = z.infer<typeof CreatePetSchema>;
+
+function CreatePetForm() {
+  const { register, handleSubmit, formState: { errors } } = useForm<CreatePetForm>({
+    resolver: zodResolver(CreatePetSchema),
+  });
+
+  const onSubmit = async (data: CreatePetForm) => {
+    await fetch('/api/pets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <input {...register('name')} />
+      {errors.name && <span>{errors.name.message}</span>}
+
+      <select {...register('status')}>
+        <option value="available">Available</option>
+        <option value="pending">Pending</option>
+        <option value="sold">Sold</option>
+      </select>
+
+      <button type="submit">Create Pet</button>
+    </form>
+  );
+}
+```
+
+## Advanced Configuration
+
+### Custom Naming Patterns
+
+Use functions for dynamic naming:
+
+```ts
+{
+  name: '@hey-api/zod',
+  definitions: {
+    name: (name: string) => `zodSchema${name}`,
+  },
+  requests: {
+    name: (name: string) => `${name}RequestSchema`,
+  },
+}
+```
+
+### Selective Schema Generation
+
+Disable specific schema categories:
+
+```ts
+{
+  name: '@hey-api/zod',
+  definitions: true,
+  requests: false,    // Don't generate request schemas
+  responses: true,
+  webhooks: false,    // Don't generate webhook schemas
+}
+```
+
+### Global Configuration
+
+```ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'path/to/openapi.json',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/zod',
+      compatibilityVersion: 4,
+      case: 'camelCase',
+      comments: true,
+      metadata: false,
+      dates: {
+        offset: true,
+      },
+      definitions: {
+        name: 'z{{name}}',
+        types: {
+          infer: true,
+        },
+      },
+      requests: {
+        name: 'z{{name}}Data',
+        types: {
+          infer: true,
+        },
+      },
+      responses: {
+        name: 'z{{name}}Response',
+        types: {
+          infer: true,
+        },
+      },
+    },
+  ],
+});
+```
+
+## Type Reference
+
+The Zod plugin exports these configuration types:
+
+```ts
+import type { ZodPlugin } from '@hey-api/zod';
+import { defineConfig } from '@hey-api/zod';
+
+// Use the type helper for better type safety
+const zodConfig = defineConfig({
+  name: '@hey-api/zod',
+  // ... your configuration
+});
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Validators Overview" icon="shield-check" href="/validators/overview">
+    Learn about validator plugins and their benefits
+  </Card>
+  <Card title="Valibot Plugin" icon="shield-check" href="/validators/valibot">
+    Alternative validator with smaller bundle size
+  </Card>
+  <Card title="Zod Documentation" icon="external-link" href="https://zod.dev">
+    Official Zod library documentation
+  </Card>
+</CardGroup>

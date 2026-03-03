@@ -1,0 +1,298 @@
+---
+title: Angular Example
+description: Integrate OpenAPI TypeScript with Angular using the @hey-api/client-angular plugin
+---
+
+This example demonstrates how to use OpenAPI TypeScript with Angular applications, leveraging Angular's dependency injection and RxJS.
+
+## Configuration
+
+### OpenAPI TypeScript Config
+
+Create `openapi-ts.config.ts` in your project root:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input:
+    'https://raw.githubusercontent.com/swagger-api/swagger-petstore/master/src/main/resources/openapi.yaml',
+  logs: {
+    path: './logs',
+  },
+  output: {
+    path: './src/client',
+    postProcess: ['oxfmt', 'eslint'],
+  },
+  plugins: [
+    '@hey-api/client-angular',
+    '@hey-api/schemas',
+    {
+      name: '@hey-api/sdk',
+      operations: {
+        containerName: '{{name}}Service',
+        strategy: 'byTags',
+      },
+    },
+    {
+      enums: 'javascript',
+      name: '@hey-api/typescript',
+    },
+  ],
+});
+```
+
+Key features:
+- `@hey-api/client-angular` - Angular-specific HTTP client
+- `operations.strategy: 'byTags'` - Groups operations by OpenAPI tags into services
+- `operations.containerName: '{{name}}Service'` - Names services with "Service" suffix
+
+### Package Dependencies
+
+```json package.json
+{
+  "dependencies": {
+    "@angular/common": "^21.0.0",
+    "@angular/core": "^21.0.0",
+    "@angular/platform-browser": "^21.0.0"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "latest",
+    "typescript": "^5.9.0"
+  },
+  "scripts": {
+    "openapi-ts": "openapi-ts"
+  }
+}
+```
+
+## Application Setup
+
+### App Configuration
+
+Configure the Angular application with HTTP client and Hey API providers:
+
+```typescript src/app/app.config.ts
+import { provideHttpClient, withFetch } from '@angular/common/http';
+import type { ApplicationConfig } from '@angular/core';
+import { provideZoneChangeDetection } from '@angular/core';
+import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
+import { provideRouter } from '@angular/router';
+
+import { client } from '../client/client.gen';
+import { provideHeyApiClient } from '../client/client/client.gen';
+import { routes } from './app.routes';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideRouter(routes),
+    provideClientHydration(withEventReplay()),
+    provideHttpClient(withFetch()),
+    provideHeyApiClient(client),
+  ],
+};
+```
+
+## Usage
+
+### Component with Dependency Injection
+
+```typescript src/app/demo/demo.ts
+import type { HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
+import { Component, inject, signal } from '@angular/core';
+
+import type { AddPetErrors, Pet } from '../../client';
+import { PetService } from '../../client';
+import { createClient } from '../../client/client';
+
+const localClient = createClient({
+  // set default base url for requests made by this client
+  baseUrl: 'https://petstore3.swagger.io/api/v3',
+  headers: {
+    Authorization: 'Bearer <token_from_local_client>',
+  },
+});
+
+@Component({
+  selector: 'app-demo',
+  templateUrl: './demo.html',
+  styleUrl: './demo.css',
+})
+export class Demo {
+  pet = signal<Pet | undefined>(undefined);
+  error = signal<
+    | undefined
+    | {
+        error: AddPetErrors[keyof AddPetErrors] | Error;
+        response: HttpErrorResponse;
+      }
+  >(undefined);
+
+  #petService = inject(PetService);
+  #http = inject(HttpClient);
+
+  onGetPetById = async () => {
+    const { data, error, response } = await this.#petService.getPetById({
+      path: {
+        petId: Math.floor(Math.random() * 10 + 1),
+      },
+    });
+
+    if (error) {
+      console.log(error);
+      this.error.set({
+        error,
+        response: response as HttpErrorResponse,
+      });
+      return;
+    }
+
+    this.pet.set(data);
+    this.error.set(undefined);
+  };
+
+  onGetPetByIdLocalClient = async () => {
+    const { data, error, response } = await this.#petService.getPetById({
+      client: localClient,
+      httpClient: this.#http,
+      path: {
+        petId: Math.floor(Math.random() * 10 + 1),
+      },
+    });
+
+    if (error) {
+      this.error.set({ error, response: response as HttpErrorResponse });
+      return;
+    }
+
+    this.pet.set(data);
+    this.error.set(undefined);
+  };
+}
+```
+
+### Template
+
+```html src/app/demo/demo.html
+<div class="demo-container">
+  <h2>Pet Information</h2>
+  
+  @if (pet()) {
+    <div class="pet-card">
+      <h3>{{ pet()!.name }}</h3>
+      <p>Status: {{ pet()!.status }}</p>
+      <p>Category: {{ pet()!.category?.name }}</p>
+    </div>
+  }
+  
+  @if (error()) {
+    <div class="error">
+      <p>Error: {{ error()!.response.status }}</p>
+    </div>
+  }
+  
+  <button (click)="onGetPetById()">Get Random Pet</button>
+  <button (click)="onGetPetByIdLocalClient()">Get with Local Client</button>
+</div>
+```
+
+## Key Features
+
+### Type Safety
+
+All API calls are fully typed:
+
+```typescript
+// TypeScript knows the exact shape of Pet
+const pet = signal<Pet | undefined>(undefined);
+
+// Path parameters are type-checked
+await this.#petService.getPetById({
+  path: {
+    petId: 123, // Must be a number
+  },
+});
+
+// Error types are specific to each operation
+type AddPetErrors = {
+  400: InvalidInput;
+  422: ValidationException;
+};
+```
+
+### Dependency Injection
+
+Services are injectable Angular services:
+
+```typescript
+export class MyComponent {
+  #petService = inject(PetService);
+  #storeService = inject(StoreService);
+  #userService = inject(UserService);
+}
+```
+
+### Multiple Clients
+
+Support for local and global clients:
+
+```typescript
+// Global client (configured in app.config.ts)
+await this.#petService.getPetById({ path: { petId: 1 } });
+
+// Local client with custom configuration
+const localClient = createClient({
+  baseUrl: 'https://api.example.com',
+  headers: { Authorization: 'Bearer token' },
+});
+
+await this.#petService.getPetById({
+  client: localClient,
+  httpClient: this.#http,
+  path: { petId: 1 },
+});
+```
+
+## Running the Example
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/hey-api/openapi-ts.git
+    cd openapi-ts
+    ```
+  </Step>
+  
+  <Step title="Install dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+  
+  <Step title="Run the Angular example">
+    ```bash
+    pnpm example angular dev
+    ```
+  </Step>
+  
+  <Step title="Open in browser">
+    Navigate to `http://localhost:4200`
+  </Step>
+</Steps>
+
+## Full Example
+
+View the complete example in the repository:
+
+[Angular Example on GitHub](https://github.com/hey-api/openapi-ts/tree/main/examples/openapi-ts-angular)
+
+## Learn More
+
+<CardGroup cols={2}>
+  <Card title="Client Configuration" href="/clients/angular" />
+  <Card title="SDK Plugin" href="/plugins/sdk" />
+  <Card title="Schemas Plugin" href="/plugins/schemas" />
+  <Card title="Examples Overview" href="/examples/overview" />
+</CardGroup>

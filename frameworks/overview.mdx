@@ -1,0 +1,97 @@
+---
+title: 'Web Frameworks'
+description: 'Generate framework-specific type-safe integrations from OpenAPI specifications'
+icon: 'grid-2'
+---
+
+OpenAPI TypeScript provides plugins for popular web frameworks, generating type-safe server and client code tailored to each framework's conventions.
+
+## Available Frameworks
+
+<CardGroup cols={2}>
+
+<Card title="Angular" icon="angular" href="/frameworks/angular">
+  Generate HTTP requests and resources for Angular applications
+</Card>
+
+<Card title="Fastify" icon="bolt" href="/frameworks/fastify">
+  Generate type-safe route handlers for Fastify servers
+</Card>
+
+</CardGroup>
+
+## How Framework Plugins Work
+
+Framework plugins analyze your OpenAPI specification and generate code that integrates seamlessly with your chosen framework:
+
+1. **Type Generation** - Creates TypeScript types for requests, responses, and parameters
+2. **Framework Integration** - Generates code using framework-specific patterns and APIs
+3. **Type Safety** - Ensures compile-time type checking for your API implementation
+4. **Developer Experience** - Provides autocomplete and inline documentation
+
+## Choosing a Framework Plugin
+
+### Angular Plugin
+
+Use the `@angular/common` plugin when building Angular applications. It generates:
+
+- **HTTP Requests** - `HttpRequest` instances for use with Angular's HTTP client
+- **HTTP Resources** - Resource APIs using Angular's new `httpResource` API
+- **Injectable Services** - Classes decorated with `@Injectable` for dependency injection
+
+<Note>
+Requires Angular 18+ for `httpResource` support. Use `httpRequests` for older versions.
+</Note>
+
+### Fastify Plugin
+
+Use the `fastify` plugin when building Fastify servers. It generates:
+
+- **Route Handlers** - Type-safe handler signatures matching your API operations
+- **Request Typing** - Body, query, path, and header parameter types
+- **Response Typing** - Success and error response types
+
+## Common Configuration
+
+All framework plugins support standard plugin options:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'path/to/openapi.yaml',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    {
+      name: 'framework-plugin',
+      // Framework-specific options here
+    },
+  ],
+});
+```
+
+### Standard Options
+
+<ResponseField name="includeInEntry" type="boolean" default={false}>
+  Whether to export generated code from the main `index.ts` entry file.
+</ResponseField>
+
+<ResponseField name="comments" type="boolean" default={true}>
+  Whether to include JSDoc comments in generated code.
+</ResponseField>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Angular Integration" icon="angular" href="/frameworks/angular">
+  Learn how to use the Angular plugin
+</Card>
+
+<Card title="Fastify Integration" icon="bolt" href="/frameworks/fastify">
+  Learn how to use the Fastify plugin
+</Card>
+
+</CardGroup>

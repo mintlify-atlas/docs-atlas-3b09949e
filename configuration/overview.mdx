@@ -1,0 +1,170 @@
+---
+title: Configuration Overview
+description: Learn how to configure OpenAPI TypeScript using configuration files
+---
+
+OpenAPI TypeScript is configured using a configuration file in your project root. The CLI automatically detects and loads your configuration from supported file formats.
+
+## Configuration File
+
+Create a configuration file in your project root using one of these formats:
+
+<CodeGroup>
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: {
+    path: './src/client',
+  },
+});
+```
+
+```javascript openapi-ts.config.mjs
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: {
+    path: './src/client',
+  },
+});
+```
+
+```javascript openapi-ts.config.cjs
+const { defineConfig } = require('@hey-api/openapi-ts');
+
+module.exports = defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: {
+    path: './src/client',
+  },
+});
+```
+
+</CodeGroup>
+
+<Note>
+The `defineConfig` helper provides TypeScript autocomplete and type checking for your configuration.
+</Note>
+
+## Core Configuration Options
+
+Every configuration requires at minimum an `input` and `output`:
+
+<ParamField path="input" type="string | object | array" required>
+  Path to your OpenAPI specification. Can be a local file path, URL, or API registry shorthand.
+  
+  See [Input Configuration](/configuration/input) for details.
+</ParamField>
+
+<ParamField path="output" type="string | object | array" required>
+  Path to the output folder where generated files will be written.
+  
+  See [Output Configuration](/configuration/output) for details.
+</ParamField>
+
+<ParamField path="plugins" type="array" default="['@hey-api/typescript', '@hey-api/sdk']">
+  Plugins generate artifacts from your OpenAPI specification. By default, TypeScript types and SDK functions are generated.
+  
+  See [Plugins Configuration](/configuration/plugins) for details.
+</ParamField>
+
+<ParamField path="parser" type="object">
+  Customize how the OpenAPI specification is parsed and transformed before plugins process it.
+  
+  See [Parser Configuration](/configuration/parser) for details.
+</ParamField>
+
+## Additional Options
+
+<ParamField path="configFile" type="string">
+  Path to the config file. Set this if you don't use the default config file name, or it's not located in the project root.
+</ParamField>
+
+<ParamField path="dryRun" type="boolean" default={false}>
+  Skip writing files to disk. Useful for testing configuration without generating output.
+</ParamField>
+
+<ParamField path="interactive" type="boolean" default={false}>
+  Show an interactive error reporting tool when the program crashes. Generally kept disabled.
+</ParamField>
+
+<ParamField path="logs" type="string | object" default="process.cwd()">
+  Configure logging behavior.
+
+  <Expandable title="Logs Configuration">
+    <ParamField path="logs.path" type="string" default="process.cwd()">
+      The relative location of the logs folder.
+    </ParamField>
+
+    <ParamField path="logs.level" type="string" default="info">
+      The logging level to control verbosity. Options: `trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`.
+    </ParamField>
+
+    <ParamField path="logs.file" type="boolean" default={true}>
+      Whether error logs should be written to a file.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Multiple Configurations
+
+You can export an array of configurations to generate multiple outputs from different inputs:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig([
+  {
+    input: 'https://api.example.com/v1/openapi.json',
+    output: {
+      path: './src/client/v1',
+    },
+  },
+  {
+    input: 'https://api.example.com/v2/openapi.json',
+    output: {
+      path: './src/client/v2',
+    },
+  },
+]);
+```
+
+## Async Configuration
+
+The `defineConfig` helper supports async functions for dynamic configuration:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig(async () => {
+  const apiUrl = await fetchApiUrl();
+  
+  return {
+    input: apiUrl,
+    output: {
+      path: './src/client',
+    },
+  };
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Input Configuration" icon="arrow-down-to-bracket" href="/configuration/input">
+    Configure how OpenAPI specifications are loaded
+  </Card>
+  <Card title="Output Configuration" icon="folder-open" href="/configuration/output">
+    Control where and how files are generated
+  </Card>
+  <Card title="Parser Configuration" icon="code" href="/configuration/parser">
+    Transform and filter your OpenAPI specification
+  </Card>
+  <Card title="Plugins Configuration" icon="plug" href="/configuration/plugins">
+    Choose what artifacts to generate
+  </Card>
+</CardGroup>

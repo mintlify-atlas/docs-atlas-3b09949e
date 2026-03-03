@@ -1,0 +1,638 @@
+---
+title: "Ky Client"
+description: "Tiny, elegant HTTP client with retry support and modern features"
+---
+
+The Ky client wraps the popular Ky library, providing a lightweight alternative to Axios with automatic retry, timeout, and hooks built on the native Fetch API.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @hey-api/client-ky ky
+```
+
+```bash pnpm
+pnpm add @hey-api/client-ky ky
+```
+
+```bash yarn
+yarn add @hey-api/client-ky ky
+```
+
+```bash bun
+bun add @hey-api/client-ky ky
+```
+
+</CodeGroup>
+
+<Note>
+Ky is a peer dependency and must be installed separately.
+</Note>
+
+## Basic Usage
+
+<Steps>
+
+<Step title="Create a client instance">
+
+```typescript
+import { createClient } from '@hey-api/client-ky';
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+});
+```
+
+</Step>
+
+<Step title="Make API calls">
+
+```typescript
+const { data, error } = await client.get({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+
+if (error) {
+  console.error('Error:', error);
+} else {
+  console.log('User:', data);
+}
+```
+
+</Step>
+
+</Steps>
+
+## Configuration
+
+The Ky client extends Ky configuration with OpenAPI TypeScript features:
+
+### Client Options
+
+```typescript
+import { createClient } from '@hey-api/client-ky';
+import ky from 'ky';
+
+const client = createClient({
+  // Base URL for all requests
+  baseUrl: 'https://api.example.com',
+
+  // Custom Ky instance (optional)
+  ky: ky.create({
+    timeout: 5000,
+  }),
+
+  // Default headers
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key',
+  },
+
+  // Response parsing format
+  parseAs: 'json', // 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'stream' | 'auto'
+
+  // Response style
+  responseStyle: 'fields', // 'fields' | 'data'
+
+  // Error handling
+  throwOnError: false,
+
+  // Timeout (milliseconds)
+  timeout: 10000,
+
+  // Retry configuration
+  retry: {
+    limit: 2,
+    methods: ['get', 'put', 'head', 'delete', 'options', 'trace'],
+    statusCodes: [408, 413, 429, 500, 502, 503, 504],
+  },
+
+  // Authentication
+  auth: async (auth) => getToken(),
+
+  // Body serialization
+  bodySerializer: (body) => JSON.stringify(body),
+
+  // Query serialization
+  querySerializer: {
+    array: { style: 'form', explode: true },
+    object: { style: 'deepObject', explode: true },
+  },
+
+  // Request validator
+  requestValidator: async (data) => validateRequest(data),
+
+  // Response transformer
+  responseTransformer: async (data) => transformResponse(data),
+
+  // Response validator
+  responseValidator: async (data) => validateResponse(data),
+
+  // Additional Ky options
+  kyOptions: {
+    throwHttpErrors: false,
+    retry: 0,
+  },
+
+  // Standard fetch options
+  credentials: 'include',
+  mode: 'cors',
+  cache: 'default',
+});
+```
+
+### Custom Ky Instance
+
+Use an existing Ky instance:
+
+```typescript
+import { createClient } from '@hey-api/client-ky';
+import ky from 'ky';
+
+// Create custom Ky instance
+const kyInstance = ky.create({
+  timeout: 5000,
+  headers: {
+    'X-Custom-Header': 'value',
+  },
+  hooks: {
+    beforeRequest: [
+      (request) => {
+        console.log('Request:', request.url);
+      },
+    ],
+  },
+});
+
+// Use with OpenAPI TypeScript client
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  ky: kyInstance,
+});
+```
+
+## HTTP Methods
+
+<Tabs>
+
+<Tab title="GET">
+
+```typescript
+const { data, error, response } = await client.get({
+  url: '/users',
+  query: {
+    page: 1,
+    limit: 10,
+  },
+});
+
+if (!error) {
+  console.log('Users:', data);
+  console.log('Status:', response.status);
+}
+```
+
+</Tab>
+
+<Tab title="POST">
+
+```typescript
+const { data, error } = await client.post({
+  url: '/users',
+  body: {
+    name: 'John Doe',
+    email: 'john@example.com',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="PUT">
+
+```typescript
+const { data } = await client.put({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    name: 'Jane Doe',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="PATCH">
+
+```typescript
+const { data } = await client.patch({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    email: 'jane@example.com',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="DELETE">
+
+```typescript
+const { data } = await client.delete({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+```
+
+</Tab>
+
+</Tabs>
+
+## Retry Configuration
+
+Ky has built-in retry support:
+
+### Default Retry
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  retry: {
+    limit: 2, // Maximum retry attempts
+    methods: ['get', 'put', 'head', 'delete', 'options', 'trace'],
+    statusCodes: [408, 413, 429, 500, 502, 503, 504],
+  },
+});
+```
+
+### Custom Retry Logic
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  kyOptions: {
+    retry: {
+      limit: 3,
+      methods: ['get', 'post'],
+      statusCodes: [408, 413, 429, 500, 502, 503, 504],
+      afterStatusCodes: [413, 429, 503],
+    },
+  },
+});
+```
+
+### Per-Request Retry
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  retry: {
+    limit: 5,
+    statusCodes: [429, 503],
+  },
+});
+```
+
+## Timeout Configuration
+
+### Global Timeout
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  timeout: 10000, // 10 seconds
+});
+```
+
+### Per-Request Timeout
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  timeout: 5000, // 5 seconds
+});
+```
+
+### Disable Timeout
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  timeout: false,
+});
+```
+
+## Response Styles
+
+### Fields Style (Default)
+
+```typescript
+const { data, error, request, response } = await client.get({
+  url: '/users',
+  responseStyle: 'fields',
+});
+
+if (error) {
+  console.error('Error:', error);
+} else {
+  console.log('Data:', data);
+  console.log('Status:', response.status);
+}
+```
+
+### Data Style
+
+```typescript
+const data = await client.get({
+  url: '/users',
+  responseStyle: 'data',
+});
+
+if (data) {
+  console.log('Users:', data);
+}
+```
+
+## Authentication
+
+### Bearer Token
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'bearer') {
+      return await getAccessToken();
+    }
+  },
+});
+```
+
+### API Key
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.type === 'apiKey') {
+      return process.env.API_KEY;
+    }
+  },
+});
+
+// Per-request security
+const { data } = await client.get({
+  url: '/protected',
+  security: [
+    {
+      type: 'apiKey',
+      in: 'header',
+      name: 'X-API-Key',
+    },
+  ],
+});
+```
+
+## Interceptors
+
+Add request, response, and error interceptors:
+
+### Request Interceptor
+
+```typescript
+client.interceptors.request.use((request, options) => {
+  console.log('Request:', request.url);
+  
+  // Add custom header
+  request.headers.set('X-Request-ID', generateRequestId());
+  
+  return request;
+});
+```
+
+### Response Interceptor
+
+```typescript
+client.interceptors.response.use((response, request, options) => {
+  console.log('Response:', response.status);
+  return response;
+});
+```
+
+### Error Interceptor
+
+```typescript
+client.interceptors.error.use((error, response, request, options) => {
+  if (response?.status === 429) {
+    console.warn('Rate limited, will retry...');
+  }
+  return error;
+});
+```
+
+## Server-Sent Events
+
+Stream real-time data:
+
+```typescript
+const stream = await client.sse.get({
+  url: '/events',
+  onSseEvent: (event) => {
+    console.log('Event:', event.data);
+  },
+  onSseError: (error) => {
+    console.error('Stream error:', error);
+  },
+  sseMaxRetryAttempts: 3,
+  sseMaxRetryDelay: 5000,
+});
+
+// Close the stream
+stream.close();
+```
+
+## Request Cancellation
+
+```typescript
+const controller = new AbortController();
+
+const promise = client.get({
+  url: '/users',
+  signal: controller.signal,
+});
+
+// Cancel the request
+controller.abort();
+```
+
+## Response Parsing
+
+### Auto (Default)
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  parseAs: 'auto', // Infers from Content-Type
+});
+```
+
+### Specific Format
+
+```typescript
+// JSON
+const { data } = await client.get({
+  url: '/users',
+  parseAs: 'json',
+});
+
+// Text
+const { data } = await client.get({
+  url: '/document',
+  parseAs: 'text',
+});
+
+// Blob
+const { data } = await client.get({
+  url: '/image.png',
+  parseAs: 'blob',
+});
+
+// Stream
+const { data } = await client.get({
+  url: '/large-file',
+  parseAs: 'stream',
+});
+```
+
+## Advanced Features
+
+### Preflight Requests
+
+```typescript
+import { createClient } from '@hey-api/client-ky';
+import ky from 'ky';
+
+const kyInstance = ky.create({
+  hooks: {
+    beforeRequest: [
+      async (request, options) => {
+        // Send preflight request
+        await fetch(request.url, { method: 'OPTIONS' });
+      },
+    ],
+  },
+});
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  ky: kyInstance,
+});
+```
+
+### Response Hooks
+
+```typescript
+import ky from 'ky';
+
+const kyInstance = ky.create({
+  hooks: {
+    afterResponse: [
+      async (request, options, response) => {
+        // Log response time
+        const responseTime = response.headers.get('X-Response-Time');
+        console.log('Response time:', responseTime);
+        return response;
+      },
+    ],
+  },
+});
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  ky: kyInstance,
+});
+```
+
+### Error Hooks
+
+```typescript
+import ky from 'ky';
+import { HTTPError } from 'ky';
+
+const kyInstance = ky.create({
+  hooks: {
+    beforeError: [
+      (error) => {
+        const { response } = error;
+        if (response && response.body) {
+          error.message = `${error.message} (${response.status})`;
+        }
+        return error;
+      },
+    ],
+  },
+});
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  Client,
+  Config,
+  RequestOptions,
+  RequestResult,
+  ResponseStyle,
+  RetryOptions,
+} from '@hey-api/client-ky';
+
+// Custom retry configuration
+const retryConfig: RetryOptions = {
+  limit: 3,
+  methods: ['get', 'post'],
+  statusCodes: [408, 429, 500, 502, 503, 504],
+};
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  retry: retryConfig,
+});
+```
+
+## Comparison with Fetch Client
+
+| Feature | Ky Client | Fetch Client |
+|---------|-----------|-------------|
+| Dependencies | Requires Ky | Zero dependencies |
+| Browser Support | Modern browsers | Modern browsers |
+| Retry Support | Built-in | Manual |
+| Timeout Support | Built-in | Manual |
+| Request Hooks | Ky hooks | Interceptors only |
+| Response Hooks | Ky hooks | Interceptors only |
+| Bundle Size | ~5KB | ~2KB |
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Fetch Client" icon="globe" href="/clients/fetch">
+  Zero-dependency alternative
+</Card>
+
+<Card title="ofetch Client" icon="cloud" href="/clients/ofetch">
+  Universal fetch wrapper
+</Card>
+
+<Card title="Retry Configuration" icon="rotate-right" href="/clients/ky#retry-configuration">
+  Configure automatic retries
+</Card>
+
+<Card title="Authentication" icon="lock" href="/clients/ky#authentication">
+  Set up API authentication
+</Card>
+
+</CardGroup>

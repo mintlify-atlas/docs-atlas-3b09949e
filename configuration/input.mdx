@@ -1,0 +1,222 @@
+---
+title: Input Configuration
+description: Configure how OpenAPI specifications are loaded and processed
+---
+
+The `input` option specifies where to load your OpenAPI specification from. It supports local files, URLs, and API registry shorthands.
+
+## Basic Usage
+
+<CodeGroup>
+
+```typescript Local File
+export default defineConfig({
+  input: './openapi.json',
+  output: './src/client',
+});
+```
+
+```typescript Remote URL
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+});
+```
+
+```typescript API Registry
+export default defineConfig({
+  input: 'https://get.heyapi.dev/my-org/my-project',
+  output: './src/client',
+});
+```
+
+</CodeGroup>
+
+## Input Options
+
+For advanced scenarios, use an object to configure additional input options:
+
+<ParamField path="input.path" type="string | object" required>
+  Path to the OpenAPI specification. Can be:
+  - Local file path (e.g., `'./openapi.yaml'`)
+  - URL (e.g., `'https://api.example.com/openapi.json'`)
+  - API registry shorthand (e.g., `'org/project'`)
+  - Parsed JSON object
+  
+  Both JSON and YAML formats are supported.
+</ParamField>
+
+<ParamField path="input.fetch" type="RequestInit">
+  Pass any valid Fetch API options to the request for fetching your specification. Useful for adding authentication headers.
+
+  ```typescript
+  export default defineConfig({
+    input: {
+      path: 'https://api.example.com/openapi.json',
+      fetch: {
+        headers: {
+          Authorization: 'Bearer token',
+        },
+      },
+    },
+    output: './src/client',
+  });
+  ```
+</ParamField>
+
+<ParamField path="input.watch" type="boolean | number | object" default={false}>
+  Regenerate the client when the input file changes. Pass `true` to enable with default settings, or a number for custom interval in milliseconds.
+
+  <Expandable title="Watch Configuration">
+    <ParamField path="watch.enabled" type="boolean" default={false}>
+      Whether watch mode is enabled.
+    </ParamField>
+
+    <ParamField path="watch.interval" type="number" default={1000}>
+      How often to check for changes (in milliseconds).
+    </ParamField>
+
+    <ParamField path="watch.timeout" type="number" default={60000}>
+      Request timeout when fetching remote specifications (in milliseconds).
+    </ParamField>
+  </Expandable>
+
+  ```typescript
+  export default defineConfig({
+    input: {
+      path: './openapi.yaml',
+      watch: true, // or { enabled: true, interval: 2000 }
+    },
+    output: './src/client',
+  });
+  ```
+</ParamField>
+
+## API Registry Options
+
+When using Hey API Platform, additional options are available:
+
+<ParamField path="input.organization" type="string">
+  Organization created in Hey API Platform.
+  
+  **Requires `path` to start with `https://get.heyapi.dev` or be undefined.**
+</ParamField>
+
+<ParamField path="input.project" type="string">
+  Project created in Hey API Platform.
+  
+  **Requires `path` to start with `https://get.heyapi.dev` or be undefined.**
+</ParamField>
+
+<ParamField path="input.api_key" type="string">
+  API key for authenticating with Hey API Platform. Projects are private by default.
+  
+  You can also provide an environment variable `HEY_API_TOKEN` instead.
+  
+  **Requires `path` to start with `https://get.heyapi.dev` or be undefined.**
+</ParamField>
+
+<ParamField path="input.branch" type="string">
+  Fetch the last build from a specific branch.
+  
+  **Requires `path` to start with `https://get.heyapi.dev` or be undefined.**
+</ParamField>
+
+<ParamField path="input.commit_sha" type="string">
+  Fetch an exact specification by commit SHA. This always returns the same file.
+  
+  **Requires `path` to start with `https://get.heyapi.dev` or be undefined.**
+</ParamField>
+
+<ParamField path="input.version" type="string">
+  Fetch the last uploaded specification matching the OpenAPI version field value.
+  
+  **Requires `path` to start with `https://get.heyapi.dev` or be undefined.**
+</ParamField>
+
+<ParamField path="input.tags" type="string[]">
+  Filter specifications by custom tags. When multiple tags are provided, only the first match is returned.
+  
+  **Requires `path` to start with `https://get.heyapi.dev` or be undefined.**
+</ParamField>
+
+## API Registry Example
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: {
+    path: 'https://get.heyapi.dev/my-org/my-project',
+    api_key: process.env.HEY_API_TOKEN,
+    branch: 'main',
+    version: '1.0.0',
+  },
+  output: './src/client',
+});
+```
+
+## Multiple Inputs
+
+You can provide an array of inputs to combine multiple OpenAPI specifications into a single output:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: [
+    './specs/users.yaml',
+    './specs/products.yaml',
+  ],
+  output: './src/client',
+});
+```
+
+<Note>
+When using multiple inputs with multiple outputs, the arrays must have the same length. Each input will be paired with the corresponding output.
+</Note>
+
+## Watch Mode
+
+Watch mode is useful during development to automatically regenerate the client when your OpenAPI specification changes:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: {
+    path: './openapi.yaml',
+    watch: {
+      enabled: true,
+      interval: 2000, // Check every 2 seconds
+    },
+  },
+  output: './src/client',
+});
+```
+
+For remote URLs, watch mode will poll the endpoint at the specified interval:
+
+```typescript
+export default defineConfig({
+  input: {
+    path: 'https://api.example.com/openapi.json',
+    watch: {
+      enabled: true,
+      interval: 5000, // Check every 5 seconds
+      timeout: 30000, // 30 second timeout
+    },
+  },
+  output: './src/client',
+});
+```
+
+## Supported Formats
+
+OpenAPI TypeScript supports:
+
+- **OpenAPI 3.0.x** (JSON and YAML)
+- **OpenAPI 3.1.x** (JSON and YAML)
+- **Swagger 2.0** (JSON and YAML)
+
+Both `.json` and `.yaml`/`.yml` file extensions are automatically detected and parsed.

@@ -1,0 +1,337 @@
+---
+title: Output Configuration
+description: Control where and how generated files are created
+---
+
+The `output` option controls where generated files are written and how they're formatted.
+
+## Basic Usage
+
+The simplest form is a string path:
+
+```typescript openapi-ts.config.ts
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: './src/client',
+});
+```
+
+For more control, use an object:
+
+```typescript openapi-ts.config.ts
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: {
+    path: './src/client',
+    clean: true,
+    postProcess: ['prettier', 'eslint'],
+  },
+});
+```
+
+## Output Options
+
+<ParamField path="output.path" type="string" required>
+  The absolute or relative path to the output folder where generated files will be written.
+</ParamField>
+
+<ParamField path="output.clean" type="boolean" default={true}>
+  Clean the output folder before generating new files. 
+  
+  When enabled, the entire output directory is deleted before generation. If disabled, new files are written alongside existing files, which may be useful if you're storing additional custom files in the output directory.
+
+  ```typescript
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      clean: false, // Keep existing files
+    },
+  });
+  ```
+</ParamField>
+
+<ParamField path="output.entryFile" type="boolean" default={true}>
+  Generate an entry file (typically `index.ts`) that re-exports symbols from other generated files.
+  
+  This provides a single import point for consumers:
+  
+  ```typescript
+  // With entryFile: true
+  import { getUsersOptions, type User } from './client';
+  
+  // With entryFile: false
+  import { getUsersOptions } from './client/services.gen';
+  import type { User } from './client/types.gen';
+  ```
+</ParamField>
+
+<ParamField path="output.postProcess" type="array" default={[]}>
+  Post-processing commands to run on the output folder, executed in order.
+  
+  Use preset strings for common tools, or provide custom configurations.
+
+  **Available presets:**
+  - `'biome:format'` — Format with Biome
+  - `'biome:lint'` — Lint with Biome
+  - `'eslint'` — Lint and fix with ESLint
+  - `'oxfmt'` — Format with Oxfmt
+  - `'oxlint'` — Lint and fix with Oxlint
+  - `'prettier'` — Format with Prettier
+
+  <CodeGroup>
+  ```typescript Presets
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      postProcess: ['prettier', 'eslint'],
+    },
+  });
+  ```
+
+  ```typescript Custom Commands
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      postProcess: [
+        { 
+          command: 'dprint', 
+          args: ['fmt', '{{path}}'] 
+        },
+      ],
+    },
+  });
+  ```
+
+  ```typescript Mixed
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      postProcess: [
+        'prettier',
+        { 
+          command: 'custom-tool', 
+          args: ['--fix', '{{path}}'] 
+        },
+      ],
+    },
+  });
+  ```
+  </CodeGroup>
+
+  <Note>
+  The `{{path}}` placeholder is replaced with the output directory path.
+  </Note>
+</ParamField>
+
+<ParamField path="output.case" type="string">
+  Defines casing of output fields. By default, we preserve input values as data transforms incur a performance penalty at runtime.
+  
+  Options: `'camelCase'`, `'PascalCase'`, `'snake_case'`, `'preserve'`
+
+  ```typescript
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      case: 'camelCase',
+    },
+  });
+  ```
+</ParamField>
+
+<ParamField path="output.fileName" type="string | object">
+  Transform file names before they are created.
+  
+  <Expandable title="File Name Configuration">
+    <ParamField path="fileName.case" type="string" default="preserve">
+      Casing convention for file names: `'camelCase'`, `'PascalCase'`, `'kebab-case'`, `'snake_case'`, `'preserve'`
+    </ParamField>
+
+    <ParamField path="fileName.name" type="string | function" default="{{name}}">
+      Naming pattern or function for file names. Use `{{name}}` placeholder for the original name.
+    </ParamField>
+
+    <ParamField path="fileName.suffix" type="string | null" default=".gen">
+      Suffix to append to file names (before the extension). Set to `null` to disable.
+      
+      Examples:
+      - With suffix `.gen`: `types.ts` → `types.gen.ts`
+      - With suffix `null`: `types.ts` → `types.ts`
+    </ParamField>
+  </Expandable>
+
+  ```typescript
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      fileName: {
+        case: 'kebab-case',
+        suffix: '.generated',
+      },
+    },
+  });
+  ```
+</ParamField>
+
+<ParamField path="output.preferExportAll" type="boolean" default={false}>
+  Use `export * from 'module'` instead of named exports when possible.
+  
+  This can reduce bundle size but may affect tree-shaking.
+</ParamField>
+
+<ParamField path="output.importFileExtension" type="string">
+  File extension to use when importing other modules. By default, no extension is added.
+  
+  If you're using `moduleResolution: "nodenext"` or `"node16"`, this defaults to `.js`.
+
+  ```typescript
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      importFileExtension: '.js',
+    },
+  });
+  ```
+  
+  Generated imports will look like:
+  ```typescript
+  import { User } from './types.gen.js';
+  ```
+</ParamField>
+
+<ParamField path="output.tsConfigPath" type="string">
+  Path to the `tsconfig.json` file to use for generating output.
+  
+  If not provided, we attempt to find one starting from the config file location and traversing up.
+</ParamField>
+
+<ParamField path="output.header" type="string | function">
+  Text to include at the top of every generated file.
+  
+  <CodeGroup>
+  ```typescript String
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      header: '// This file is auto-generated. Do not edit manually.',
+    },
+  });
+  ```
+
+  ```typescript Function
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      header: (ctx) => [
+        '// Auto-generated by OpenAPI TypeScript',
+        `// Generated at: ${new Date().toISOString()}`,
+      ],
+    },
+  });
+  ```
+  </CodeGroup>
+</ParamField>
+
+<ParamField path="output.source" type="boolean | object" default={false}>
+  Generate a copy of the input OpenAPI specification alongside the output.
+  
+  Set to `true` to use defaults, or provide a configuration object.
+
+  ```typescript
+  export default defineConfig({
+    output: {
+      path: './src/client',
+      source: true, // Generates openapi.json in output directory
+    },
+  });
+  ```
+</ParamField>
+
+## Deprecated Options
+
+<Warning>
+The following options are deprecated and will be removed in a future version.
+</Warning>
+
+<ParamField path="output.format" type="string" default={null}>
+  **Deprecated:** Use `postProcess` instead.
+  
+  Which formatter to use: `'biome'` or `'prettier'`.
+</ParamField>
+
+<ParamField path="output.lint" type="string" default={null}>
+  **Deprecated:** Use `postProcess` instead.
+  
+  Which linter to use: `'biome'`, `'eslint'`, or `'oxlint'`.
+</ParamField>
+
+<ParamField path="output.indexFile" type="boolean" default={true}>
+  **Deprecated:** Use `entryFile` instead.
+  
+  Generate an index file that re-exports symbols.
+</ParamField>
+
+## Multiple Outputs
+
+Generate multiple outputs from the same input:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: [
+    {
+      path: './src/client/v1',
+      postProcess: ['prettier'],
+    },
+    {
+      path: './src/client/v2',
+      postProcess: ['biome:format'],
+    },
+  ],
+});
+```
+
+Or pair multiple inputs with multiple outputs:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: [
+    'https://api.example.com/v1/openapi.json',
+    'https://api.example.com/v2/openapi.json',
+  ],
+  output: [
+    './src/client/v1',
+    './src/client/v2',
+  ],
+});
+```
+
+## Post-Processing
+
+The `postProcess` option runs commands after files are generated. This is useful for formatting and linting:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  output: {
+    path: './src/client',
+    postProcess: [
+      'oxfmt',      // Format first
+      'eslint',     // Then lint and fix
+    ],
+  },
+});
+```
+
+Commands are executed in order, and `{{path}}` is replaced with the output directory:
+
+```typescript
+postProcess: [
+  { command: 'prettier', args: ['--write', '{{path}}'] },
+  { command: 'eslint', args: ['{{path}}', '--fix'] },
+]
+```

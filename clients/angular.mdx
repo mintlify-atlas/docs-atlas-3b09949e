@@ -1,0 +1,621 @@
+---
+title: "Angular Client"
+description: "Native Angular HttpClient integration with dependency injection"
+---
+
+The Angular client integrates seamlessly with Angular's HttpClient and dependency injection system, providing type-safe API calls with full Angular ecosystem support.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @hey-api/client-angular
+```
+
+```bash pnpm
+pnpm add @hey-api/client-angular
+```
+
+```bash yarn
+yarn add @hey-api/client-angular
+```
+
+```bash bun
+bun add @hey-api/client-angular
+```
+
+</CodeGroup>
+
+## Setup
+
+<Steps>
+
+<Step title="Create a client instance">
+
+```typescript
+import { createClient } from '@hey-api/client-angular';
+
+export const apiClient = createClient({
+  baseUrl: 'https://api.example.com',
+});
+```
+
+</Step>
+
+<Step title="Provide the client in your Angular module">
+
+```typescript
+import { ApplicationConfig } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHeyApiClient } from '@hey-api/client-angular';
+import { apiClient } from './api-client';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient(),
+    provideHeyApiClient(apiClient),
+  ],
+};
+```
+
+</Step>
+
+<Step title="Use in your components or services">
+
+```typescript
+import { Component } from '@angular/core';
+import { apiClient } from './api-client';
+
+@Component({
+  selector: 'app-users',
+  template: `
+    <div *ngIf="user">
+      <h1>{{ user.name }}</h1>
+      <p>{{ user.email }}</p>
+    </div>
+  `,
+})
+export class UsersComponent {
+  user: any;
+
+  async ngOnInit() {
+    const { data } = await apiClient.get({
+      url: '/users/{id}',
+      path: { id: 123 },
+    });
+    
+    this.user = data;
+  }
+}
+```
+
+</Step>
+
+</Steps>
+
+## Configuration
+
+The Angular client extends Angular HttpClient configuration:
+
+### Client Options
+
+```typescript
+import { createClient } from '@hey-api/client-angular';
+
+const client = createClient({
+  // Base URL for all requests
+  baseUrl: 'https://api.example.com',
+
+  // Angular HttpClient instance (optional)
+  httpClient: httpClientInstance,
+
+  // Default headers
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key',
+  },
+
+  // Response style
+  responseStyle: 'fields', // 'fields' | 'data'
+
+  // Error handling
+  throwOnError: false,
+
+  // Authentication
+  auth: async (auth) => getToken(),
+
+  // Body serialization
+  bodySerializer: (body) => JSON.stringify(body),
+
+  // Query serialization
+  querySerializer: {
+    array: { style: 'form', explode: true },
+    object: { style: 'deepObject', explode: true },
+  },
+
+  // Request validator
+  requestValidator: async (data) => validateRequest(data),
+
+  // Response transformer
+  responseTransformer: async (data) => transformResponse(data),
+
+  // Response validator
+  responseValidator: async (data) => validateResponse(data),
+
+  // Standard RequestInit options
+  credentials: 'include',
+  mode: 'cors',
+  cache: 'default',
+});
+```
+
+### Dependency Injection
+
+Inject HttpClient automatically:
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { createClient } from '@hey-api/client-angular';
+
+@Component({
+  selector: 'app-root',
+  template: `...`,
+})
+export class AppComponent {
+  private httpClient = inject(HttpClient);
+  
+  private client = createClient({
+    baseUrl: 'https://api.example.com',
+    httpClient: this.httpClient,
+  });
+
+  async loadData() {
+    const { data } = await this.client.get({ url: '/users' });
+  }
+}
+```
+
+### Custom Injector
+
+Provide a custom injector for contexts outside the injection context:
+
+```typescript
+import { Injector } from '@angular/core';
+
+const { data } = await client.get({
+  url: '/users',
+  injector: customInjector,
+});
+```
+
+## HTTP Methods
+
+<Tabs>
+
+<Tab title="GET">
+
+```typescript
+const { data, error, response } = await client.get({
+  url: '/users',
+  query: {
+    page: 1,
+    limit: 10,
+  },
+});
+
+if (!error) {
+  console.log('Users:', data);
+  console.log('Status:', response.status);
+}
+```
+
+</Tab>
+
+<Tab title="POST">
+
+```typescript
+const { data, error } = await client.post({
+  url: '/users',
+  body: {
+    name: 'John Doe',
+    email: 'john@example.com',
+  },
+});
+
+if (!error) {
+  console.log('Created user:', data);
+}
+```
+
+</Tab>
+
+<Tab title="PUT">
+
+```typescript
+const { data } = await client.put({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    name: 'Jane Doe',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="PATCH">
+
+```typescript
+const { data } = await client.patch({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    email: 'jane@example.com',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="DELETE">
+
+```typescript
+const { data } = await client.delete({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+```
+
+</Tab>
+
+</Tabs>
+
+## Response Styles
+
+### Fields Style (Default)
+
+```typescript
+const { data, error, request, response } = await client.get({
+  url: '/users',
+  responseStyle: 'fields',
+});
+
+if (error) {
+  console.error('Error:', error);
+} else {
+  console.log('Data:', data);
+  console.log('Status:', response.status);
+  console.log('Headers:', response.headers);
+}
+```
+
+### Data Style
+
+```typescript
+const data = await client.get({
+  url: '/users',
+  responseStyle: 'data',
+});
+
+if (data) {
+  console.log('Users:', data);
+}
+```
+
+## Authentication
+
+### Bearer Token
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'bearer') {
+      return await getAccessToken();
+    }
+  },
+});
+```
+
+### Basic Authentication
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'basic') {
+      return btoa('username:password');
+    }
+  },
+});
+```
+
+### Per-Request Security
+
+```typescript
+const { data } = await client.get({
+  url: '/protected',
+  security: [
+    {
+      type: 'apiKey',
+      in: 'header',
+      name: 'X-API-Key',
+    },
+  ],
+});
+```
+
+## Interceptors
+
+Add request, response, and error interceptors:
+
+### Request Interceptor
+
+```typescript
+import { HttpRequest } from '@angular/common/http';
+
+client.interceptors.request.use((request, options) => {
+  // Modify request
+  console.log('Request URL:', request.url);
+  
+  // Clone and modify
+  return request.clone({
+    headers: request.headers.set('X-Request-ID', generateId()),
+  });
+});
+```
+
+### Response Interceptor
+
+```typescript
+import { HttpResponse } from '@angular/common/http';
+
+client.interceptors.response.use((response, request, options) => {
+  console.log('Response status:', response.status);
+  return response;
+});
+```
+
+### Error Interceptor
+
+```typescript
+import { HttpErrorResponse } from '@angular/common/http';
+
+client.interceptors.error.use((error, response, request, options) => {
+  if (response instanceof HttpErrorResponse) {
+    if (response.status === 401) {
+      // Handle unauthorized
+      return { message: 'Unauthorized', code: 'AUTH_ERROR' };
+    }
+  }
+  return error;
+});
+```
+
+## Server-Sent Events
+
+Stream real-time data:
+
+```typescript
+const stream = await client.sse.get({
+  url: '/events',
+  onSseEvent: (event) => {
+    console.log('Event:', event.data);
+  },
+  onSseError: (error) => {
+    console.error('Stream error:', error);
+  },
+  sseMaxRetryAttempts: 3,
+  sseMaxRetryDelay: 5000,
+});
+
+// Close the stream
+stream.close();
+```
+
+## Working with HttpRequest
+
+Generate HttpRequest objects for manual handling:
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { inject } from '@angular/core';
+
+const httpClient = inject(HttpClient);
+
+// Generate HttpRequest
+const request = client.requestOptions({
+  url: '/users/{id}',
+  path: { id: 123 },
+  method: 'GET',
+});
+
+// Use with HttpClient directly
+httpClient.request(request).subscribe((response) => {
+  console.log('Response:', response);
+});
+```
+
+## Integration with Services
+
+Create type-safe API services:
+
+```typescript
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { createClient } from '@hey-api/client-angular';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+@Injectable({
+  providedIn: 'root',
+})
+export class UserService {
+  private httpClient = inject(HttpClient);
+  
+  private client = createClient({
+    baseUrl: 'https://api.example.com',
+    httpClient: this.httpClient,
+  });
+
+  async getUser(id: number): Promise<User | undefined> {
+    const { data, error } = await this.client.get({
+      url: '/users/{id}',
+      path: { id },
+    });
+
+    if (error) {
+      console.error('Failed to fetch user:', error);
+      return undefined;
+    }
+
+    return data as User;
+  }
+
+  async createUser(user: Omit<User, 'id'>): Promise<User | undefined> {
+    const { data, error } = await this.client.post({
+      url: '/users',
+      body: user,
+    });
+
+    if (error) {
+      console.error('Failed to create user:', error);
+      return undefined;
+    }
+
+    return data as User;
+  }
+}
+```
+
+## Error Handling
+
+### With Error Field
+
+```typescript
+const { data, error, response } = await client.get({ url: '/users' });
+
+if (error) {
+  // HttpErrorResponse
+  console.error('Status:', response.status);
+  console.error('Error:', error);
+} else {
+  console.log('Data:', data);
+}
+```
+
+### With Exceptions
+
+```typescript
+try {
+  const { data } = await client.get({
+    url: '/users',
+    throwOnError: true,
+  });
+  console.log('Data:', data);
+} catch (error) {
+  if (error instanceof HttpErrorResponse) {
+    console.error('HTTP Error:', error.status, error.message);
+  }
+}
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  Client,
+  Config,
+  RequestOptions,
+  RequestResult,
+  ResponseStyle,
+} from '@hey-api/client-angular';
+import type {
+  HttpClient,
+  HttpRequest,
+  HttpResponse,
+  HttpErrorResponse,
+} from '@angular/common/http';
+
+// Custom typed client
+function createTypedClient(config: Config): Client {
+  return createClient({
+    ...config,
+    responseStyle: 'fields',
+  });
+}
+```
+
+## Advanced Examples
+
+### Global Error Handler
+
+```typescript
+import { ErrorHandler, Injectable } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+
+@Injectable()
+export class GlobalErrorHandler implements ErrorHandler {
+  handleError(error: any): void {
+    if (error instanceof HttpErrorResponse) {
+      console.error('HTTP Error:', error.status, error.message);
+    } else {
+      console.error('Error:', error);
+    }
+  }
+}
+
+// Provide in app.config.ts
+export const appConfig: ApplicationConfig = {
+  providers: [
+    { provide: ErrorHandler, useClass: GlobalErrorHandler },
+  ],
+};
+```
+
+### Response Validation with Zod
+
+```typescript
+import { z } from 'zod';
+
+const UserSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.string().email(),
+});
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  responseValidator: async (data) => {
+    UserSchema.parse(data);
+  },
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Fetch Client" icon="globe" href="/clients/fetch">
+  Lightweight alternative for Angular
+</Card>
+
+<Card title="Authentication" icon="lock" href="/clients/angular#authentication">
+  Set up API authentication
+</Card>
+
+<Card title="Interceptors" icon="filter" href="/clients/angular#interceptors">
+  Add request/response interceptors
+</Card>
+
+<Card title="Error Handling" icon="triangle-exclamation" href="/clients/angular#error-handling">
+  Handle errors effectively
+</Card>
+
+</CardGroup>

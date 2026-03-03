@@ -1,0 +1,401 @@
+---
+title: "TypeScript Plugin"
+description: "Generate TypeScript types and interfaces from your OpenAPI specification"
+---
+
+The `@hey-api/typescript` plugin is the foundation of OpenAPI TypeScript. It generates TypeScript types and interfaces from your OpenAPI specification, providing full type safety for your API.
+
+## Installation
+
+The TypeScript plugin is included by default when you install `@hey-api/openapi-ts`:
+
+```bash
+npm install @hey-api/openapi-ts --save-dev
+```
+
+## Configuration
+
+Add the plugin to your `openapi-ts.config.ts`:
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+  ],
+});
+```
+
+## What It Generates
+
+The TypeScript plugin generates a `types.gen.ts` file containing:
+
+- **Schema types** - TypeScript types for all schema definitions
+- **Request types** - Types for request bodies, query parameters, and headers
+- **Response types** - Types for response bodies and status codes
+- **Error types** - Types for error responses
+- **Enum types** - JavaScript objects, TypeScript enums, or union types
+
+<CodeGroup>
+
+```typescript Example Output
+// types.gen.ts
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+};
+
+export type GetUsersData = {
+  query?: {
+    limit?: number;
+    offset?: number;
+  };
+};
+
+export type GetUsersResponse = {
+  users: Array<User>;
+  total: number;
+};
+
+export type GetUsersErrors = {
+  404: { message: string };
+  500: { message: string };
+};
+```
+
+</CodeGroup>
+
+## Configuration Options
+
+### `case`
+
+Casing convention for generated type names.
+
+<ParamField path="case" type="string" default="PascalCase">
+  Options: `'PascalCase'`, `'camelCase'`, `'snake_case'`, `'kebab-case'`
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/typescript',
+  case: 'camelCase',
+}
+```
+
+### `enums`
+
+Control how enums are generated. By default, enums are emitted as TypeScript union types to preserve runtime-free output.
+
+<ParamField path="enums" type="boolean | string | object" default="false">
+  Generate enums as JavaScript objects, TypeScript enums, or const enums.
+</ParamField>
+
+<Tabs>
+  <Tab title="Boolean">
+    ```typescript
+    {
+      name: '@hey-api/typescript',
+      enums: true, // Generates JavaScript objects
+    }
+    ```
+  </Tab>
+  <Tab title="String">
+    ```typescript
+    {
+      name: '@hey-api/typescript',
+      enums: 'typescript', // Options: 'javascript' | 'typescript' | 'typescript-const'
+    }
+    ```
+  </Tab>
+  <Tab title="Object">
+    ```typescript
+    {
+      name: '@hey-api/typescript',
+      enums: {
+        enabled: true,
+        mode: 'javascript', // 'javascript' | 'typescript' | 'typescript-const'
+        case: 'SCREAMING_SNAKE_CASE',
+        constantsIgnoreNull: false, // Remove null values from enum objects
+      },
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<CodeGroup>
+
+```typescript Union Type (default)
+// enums: false
+export type Status = 'active' | 'inactive' | 'pending';
+```
+
+```typescript JavaScript Object
+// enums: 'javascript'
+export const Status = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  PENDING: 'pending',
+} as const;
+```
+
+```typescript TypeScript Enum
+// enums: 'typescript'
+export enum Status {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  PENDING = 'pending',
+}
+```
+
+```typescript TypeScript Const Enum
+// enums: 'typescript-const'
+export const enum Status {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  PENDING = 'pending',
+}
+```
+
+</CodeGroup>
+
+### `topType`
+
+The top type to use for untyped or unspecified schema values.
+
+<ParamField path="topType" type="'unknown' | 'any'" default="'unknown'">
+  - `'unknown'` - Safe top type, requires type narrowing before use
+  - `'any'` - Disables type checking, can be used anywhere
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/typescript',
+  topType: 'any',
+}
+```
+
+### `definitions`
+
+Customize naming for reusable schema definitions.
+
+<ParamField path="definitions" type="string | function | object" default="'{{name}}'">
+  Controls generation of shared types that can be referenced across requests and responses.
+</ParamField>
+
+<Tabs>
+  <Tab title="String Pattern">
+    ```typescript
+    {
+      name: '@hey-api/typescript',
+      definitions: '{{name}}Schema',
+    }
+    ```
+  </Tab>
+  <Tab title="Function">
+    ```typescript
+    {
+      name: '@hey-api/typescript',
+      definitions: (name) => `${name}Type`,
+    }
+    ```
+  </Tab>
+  <Tab title="Object">
+    ```typescript
+    {
+      name: '@hey-api/typescript',
+      definitions: {
+        name: '{{name}}Schema',
+        case: 'camelCase',
+      },
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### `requests`
+
+Customize naming for request-specific types (body, query, path parameters, headers).
+
+<ParamField path="requests" type="string | function | object" default="'{{name}}Data'">
+  Controls generation of types for request bodies, query parameters, path parameters, and headers.
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/typescript',
+  requests: '{{name}}Request',
+}
+```
+
+### `responses`
+
+Customize naming for response-specific types.
+
+<ParamField path="responses" type="string | function | object" default="'{{name}}Responses'">
+  Controls generation of types for response bodies and status codes.
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/typescript',
+  responses: {
+    name: '{{name}}Responses', // Union of all response types
+    response: '{{name}}Response', // Individual response type
+    case: 'PascalCase',
+  },
+}
+```
+
+### `errors`
+
+Customize naming for error-specific types.
+
+<ParamField path="errors" type="string | function | object" default="'{{name}}Errors'">
+  Controls generation of types for error response bodies and status codes.
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/typescript',
+  errors: {
+    name: '{{name}}Errors', // Union of all error types
+    error: '{{name}}Error', // Individual error type
+    case: 'PascalCase',
+  },
+}
+```
+
+### `webhooks`
+
+Customize naming for webhook-specific types.
+
+<ParamField path="webhooks" type="string | function | object" default="'{{name}}WebhookRequest'">
+  Controls generation of types for webhook payloads and webhook requests.
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/typescript',
+  webhooks: {
+    name: '{{name}}WebhookRequest',
+    payload: '{{name}}WebhookPayload',
+    case: 'PascalCase',
+  },
+}
+```
+
+## Common Patterns
+
+### Custom Naming Convention
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    {
+      name: '@hey-api/typescript',
+      case: 'camelCase',
+      requests: '{{name}}Input',
+      responses: '{{name}}Output',
+      errors: '{{name}}ErrorResponse',
+    },
+  ],
+});
+```
+
+### Generate JavaScript Enums
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    {
+      name: '@hey-api/typescript',
+      enums: {
+        enabled: true,
+        mode: 'javascript',
+        case: 'SCREAMING_SNAKE_CASE',
+      },
+    },
+  ],
+});
+```
+
+### Custom Type Transformer
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    {
+      name: '@hey-api/typescript',
+      definitions: (name) => {
+        // Add 'I' prefix for interfaces
+        return `I${name}`;
+      },
+    },
+  ],
+});
+```
+
+## Plugin Hooks
+
+The TypeScript plugin supports lifecycle hooks for advanced customization:
+
+<ParamField path="onAfter" type="function">
+  Called after the plugin generates types. Useful for post-processing.
+</ParamField>
+
+<ParamField path="onBefore" type="function">
+  Called before the plugin generates types. Useful for pre-processing.
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/typescript',
+  onBefore: (context) => {
+    console.log('Generating TypeScript types...');
+  },
+  onAfter: (context) => {
+    console.log('TypeScript types generated!');
+  },
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="SDK Plugin" icon="code" href="/core/sdk">
+  Generate type-safe SDK functions for your API operations.
+</Card>
+
+<Card title="Schemas Plugin" icon="brackets-curly" href="/core/schemas">
+  Generate runtime JSON schemas for validation.
+</Card>
+
+<Card title="Transformers Plugin" icon="arrow-right-arrow-left" href="/core/transformers">
+  Transform response data at runtime.
+</Card>
+
+<Card title="HTTP Clients" icon="globe" href="/clients/overview">
+  Choose an HTTP client for making requests.
+</Card>
+
+</CardGroup>

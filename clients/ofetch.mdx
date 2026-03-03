@@ -1,0 +1,760 @@
+---
+title: "ofetch Client"
+description: "Universal fetch wrapper with advanced features and Node.js optimizations"
+---
+
+The ofetch client wraps the popular ofetch library, providing a universal fetch wrapper that works in browsers and Node.js with advanced features like retry, interceptors, and native Node.js optimizations.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @hey-api/client-ofetch ofetch
+```
+
+```bash pnpm
+pnpm add @hey-api/client-ofetch ofetch
+```
+
+```bash yarn
+yarn add @hey-api/client-ofetch ofetch
+```
+
+```bash bun
+bun add @hey-api/client-ofetch ofetch
+```
+
+</CodeGroup>
+
+<Note>
+ofetch is a peer dependency and must be installed separately.
+</Note>
+
+## Basic Usage
+
+<Steps>
+
+<Step title="Create a client instance">
+
+```typescript
+import { createClient } from '@hey-api/client-ofetch';
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+});
+```
+
+</Step>
+
+<Step title="Make API calls">
+
+```typescript
+const { data, error } = await client.get({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+
+if (error) {
+  console.error('Error:', error);
+} else {
+  console.log('User:', data);
+}
+```
+
+</Step>
+
+</Steps>
+
+## Configuration
+
+The ofetch client extends ofetch configuration with OpenAPI TypeScript features:
+
+### Client Options
+
+```typescript
+import { createClient } from '@hey-api/client-ofetch';
+import { ofetch } from 'ofetch';
+
+const client = createClient({
+  // Base URL for all requests
+  baseUrl: 'https://api.example.com',
+
+  // Custom ofetch instance (optional)
+  ofetch: ofetch.create({
+    timeout: 5000,
+  }),
+
+  // Default headers
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key',
+  },
+
+  // Response parsing format
+  parseAs: 'json', // 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'stream' | 'auto'
+
+  // ofetch responseType (takes precedence over parseAs)
+  responseType: 'json',
+
+  // Response style
+  responseStyle: 'fields', // 'fields' | 'data'
+
+  // Error handling
+  throwOnError: false,
+
+  // Ignore response errors (ofetch native)
+  ignoreResponseError: true,
+
+  // Timeout (milliseconds)
+  timeout: 10000,
+
+  // Retry configuration
+  retry: 2,
+  retryDelay: 500,
+  retryStatusCodes: [408, 409, 425, 429, 500, 502, 503, 504],
+
+  // Authentication
+  auth: async (auth) => getToken(),
+
+  // Body serialization
+  bodySerializer: (body) => JSON.stringify(body),
+
+  // Query serialization
+  querySerializer: {
+    array: { style: 'form', explode: true },
+    object: { style: 'deepObject', explode: true },
+  },
+
+  // Request validator
+  requestValidator: async (data) => validateRequest(data),
+
+  // Response transformer
+  responseTransformer: async (data) => transformResponse(data),
+
+  // Response validator
+  responseValidator: async (data) => validateResponse(data),
+
+  // ofetch hooks
+  onRequest: ({ request, options }) => {
+    console.log('Request:', request);
+  },
+  onRequestError: ({ request, options, error }) => {
+    console.error('Request error:', error);
+  },
+  onResponse: ({ request, response, options }) => {
+    console.log('Response:', response.status);
+  },
+  onResponseError: ({ request, response, options }) => {
+    console.error('Response error:', response.status);
+  },
+
+  // Custom response parser
+  parseResponse: (responseText) => JSON.parse(responseText),
+
+  // Node.js-specific options
+  agent: httpsAgent, // HTTP(S) agent
+  dispatcher: dispatcher, // Node.js only
+
+  // Standard fetch options
+  credentials: 'include',
+  mode: 'cors',
+  cache: 'default',
+});
+```
+
+### Custom ofetch Instance
+
+Use an existing ofetch instance:
+
+```typescript
+import { createClient } from '@hey-api/client-ofetch';
+import { ofetch } from 'ofetch';
+
+// Create custom ofetch instance
+const customOfetch = ofetch.create({
+  timeout: 5000,
+  retry: 3,
+  onRequest: ({ request }) => {
+    console.log('Request:', request);
+  },
+});
+
+// Use with OpenAPI TypeScript client
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  ofetch: customOfetch,
+});
+```
+
+## HTTP Methods
+
+<Tabs>
+
+<Tab title="GET">
+
+```typescript
+const { data, error, response } = await client.get({
+  url: '/users',
+  query: {
+    page: 1,
+    limit: 10,
+  },
+});
+
+if (!error) {
+  console.log('Users:', data);
+  console.log('Status:', response.status);
+}
+```
+
+</Tab>
+
+<Tab title="POST">
+
+```typescript
+const { data, error } = await client.post({
+  url: '/users',
+  body: {
+    name: 'John Doe',
+    email: 'john@example.com',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="PUT">
+
+```typescript
+const { data } = await client.put({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    name: 'Jane Doe',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="PATCH">
+
+```typescript
+const { data } = await client.patch({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    email: 'jane@example.com',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="DELETE">
+
+```typescript
+const { data } = await client.delete({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+```
+
+</Tab>
+
+</Tabs>
+
+## Response Styles
+
+### Fields Style (Default)
+
+```typescript
+const { data, error, request, response } = await client.get({
+  url: '/users',
+  responseStyle: 'fields',
+});
+
+if (error) {
+  console.error('Error:', error);
+} else {
+  console.log('Data:', data);
+  console.log('Status:', response.status);
+}
+```
+
+### Data Style
+
+```typescript
+const data = await client.get({
+  url: '/users',
+  responseStyle: 'data',
+});
+
+if (data) {
+  console.log('Users:', data);
+}
+```
+
+## ofetch Hooks
+
+Use ofetch's powerful hook system:
+
+### onRequest Hook
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  onRequest: ({ request, options }) => {
+    // Modify request before sending
+    console.log('Sending request to:', request);
+    
+    // Add custom header
+    options.headers = {
+      ...options.headers,
+      'X-Request-ID': crypto.randomUUID(),
+    };
+  },
+});
+```
+
+### onRequestError Hook
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  onRequestError: ({ request, options, error }) => {
+    // Handle request errors (network failures, etc.)
+    console.error('Request failed:', request, error);
+  },
+});
+```
+
+### onResponse Hook
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  onResponse: ({ request, response, options }) => {
+    // Process successful responses
+    console.log('Response status:', response.status);
+    
+    // Access response headers
+    const responseTime = response.headers.get('X-Response-Time');
+    console.log('Response time:', responseTime);
+  },
+});
+```
+
+### onResponseError Hook
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  onResponseError: ({ request, response, options }) => {
+    // Handle HTTP errors
+    console.error('HTTP error:', response.status);
+    
+    if (response.status === 401) {
+      // Handle unauthorized
+      redirectToLogin();
+    }
+  },
+});
+```
+
+## Retry Configuration
+
+### Default Retry
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  retry: 2, // Number of retries
+  retryDelay: 500, // Delay between retries (ms)
+  retryStatusCodes: [408, 409, 425, 429, 500, 502, 503, 504],
+});
+```
+
+### Exponential Backoff
+
+```typescript
+import { ofetch } from 'ofetch';
+
+const customOfetch = ofetch.create({
+  retry: 3,
+  retryDelay: 1000,
+  onRequestError: ({ request, error, options }) => {
+    // Implement exponential backoff
+    const retryCount = options.retry || 0;
+    const delay = Math.pow(2, retryCount) * 1000;
+    return new Promise((resolve) => setTimeout(resolve, delay));
+  },
+});
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  ofetch: customOfetch,
+});
+```
+
+### Per-Request Retry
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  retry: 5,
+  retryDelay: 1000,
+  retryStatusCodes: [429, 503],
+});
+```
+
+## Authentication
+
+### Bearer Token
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'bearer') {
+      return await getAccessToken();
+    }
+  },
+});
+```
+
+### API Key
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.type === 'apiKey') {
+      return process.env.API_KEY;
+    }
+  },
+});
+
+// Per-request security
+const { data } = await client.get({
+  url: '/protected',
+  security: [
+    {
+      type: 'apiKey',
+      in: 'header',
+      name: 'X-API-Key',
+    },
+  ],
+});
+```
+
+## Interceptors
+
+Add request, response, and error interceptors:
+
+### Request Interceptor
+
+```typescript
+client.interceptors.request.use((request, options) => {
+  console.log('Request:', request.url);
+  request.headers.set('X-Request-ID', generateRequestId());
+  return request;
+});
+```
+
+### Response Interceptor
+
+```typescript
+client.interceptors.response.use((response, request, options) => {
+  console.log('Response:', response.status);
+  return response;
+});
+```
+
+### Error Interceptor
+
+```typescript
+client.interceptors.error.use((error, response, request, options) => {
+  if (response?.status === 429) {
+    console.warn('Rate limited');
+  }
+  return error;
+});
+```
+
+## Server-Sent Events
+
+Stream real-time data:
+
+```typescript
+const stream = await client.sse.get({
+  url: '/events',
+  onSseEvent: (event) => {
+    console.log('Event:', event.data);
+  },
+  onSseError: (error) => {
+    console.error('Stream error:', error);
+  },
+  sseMaxRetryAttempts: 3,
+  sseMaxRetryDelay: 5000,
+});
+
+// Close the stream
+stream.close();
+```
+
+## Node.js Features
+
+### HTTP/HTTPS Agent
+
+```typescript
+import https from 'https';
+
+const agent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+});
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  agent,
+});
+```
+
+### Custom Dispatcher (Node.js 18+)
+
+```typescript
+import { Agent } from 'undici';
+
+const dispatcher = new Agent({
+  connections: 100,
+  pipelining: 10,
+});
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  dispatcher,
+});
+```
+
+### Proxy Support
+
+```typescript
+import { ProxyAgent } from 'undici';
+
+const dispatcher = new ProxyAgent('http://proxy.example.com:8080');
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  dispatcher,
+});
+```
+
+## Response Parsing
+
+### Auto (Default)
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  parseAs: 'auto', // Infers from Content-Type
+});
+```
+
+### Custom Parser
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  parseResponse: (responseText) => {
+    // Custom parsing logic
+    const data = JSON.parse(responseText);
+    return transformData(data);
+  },
+});
+```
+
+### Specific Format
+
+```typescript
+// JSON
+const { data } = await client.get({
+  url: '/users',
+  responseType: 'json',
+});
+
+// Text
+const { data } = await client.get({
+  url: '/document',
+  responseType: 'text',
+});
+
+// Blob
+const { data } = await client.get({
+  url: '/image.png',
+  responseType: 'blob',
+});
+
+// Stream
+const { data } = await client.get({
+  url: '/large-file',
+  parseAs: 'stream',
+});
+```
+
+## Request Cancellation
+
+```typescript
+const controller = new AbortController();
+
+const promise = client.get({
+  url: '/users',
+  signal: controller.signal,
+});
+
+// Cancel the request
+controller.abort();
+```
+
+## Advanced Examples
+
+### Rate Limiting with Retry
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  retry: 5,
+  retryStatusCodes: [429],
+  onResponseError: ({ response }) => {
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      if (retryAfter) {
+        const delay = parseInt(retryAfter) * 1000;
+        return new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  },
+});
+```
+
+### Circuit Breaker Pattern
+
+```typescript
+let failureCount = 0;
+const FAILURE_THRESHOLD = 5;
+const RESET_TIMEOUT = 60000; // 1 minute
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  onRequestError: ({ error }) => {
+    failureCount++;
+    
+    if (failureCount >= FAILURE_THRESHOLD) {
+      console.error('Circuit breaker opened!');
+      setTimeout(() => {
+        failureCount = 0;
+        console.log('Circuit breaker reset');
+      }, RESET_TIMEOUT);
+    }
+  },
+  onResponse: () => {
+    failureCount = 0; // Reset on successful response
+  },
+});
+```
+
+### Request Queue
+
+```typescript
+class RequestQueue {
+  private queue: Array<() => Promise<any>> = [];
+  private processing = false;
+
+  async add<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          const result = await fn();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      
+      this.process();
+    });
+  }
+
+  private async process() {
+    if (this.processing || this.queue.length === 0) return;
+    
+    this.processing = true;
+    const fn = this.queue.shift()!;
+    await fn();
+    this.processing = false;
+    
+    this.process();
+  }
+}
+
+const queue = new RequestQueue();
+
+const { data } = await queue.add(() =>
+  client.get({ url: '/users' })
+);
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  Client,
+  Config,
+  RequestOptions,
+  RequestResult,
+  ResponseStyle,
+} from '@hey-api/client-ofetch';
+
+// Custom client wrapper
+function createApiClient(config: Config): Client {
+  return createClient({
+    ...config,
+    retry: 3,
+    timeout: 10000,
+  });
+}
+```
+
+## Comparison with Fetch Client
+
+| Feature | ofetch Client | Fetch Client |
+|---------|--------------|-------------|
+| Dependencies | Requires ofetch | Zero dependencies |
+| Browser Support | Modern browsers | Modern browsers |
+| Node.js Support | Optimized | Basic |
+| Retry Support | Built-in | Manual |
+| Hooks | ofetch hooks | Interceptors only |
+| Bundle Size | ~3KB | ~2KB |
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Fetch Client" icon="globe" href="/clients/fetch">
+  Zero-dependency alternative
+</Card>
+
+<Card title="Ky Client" icon="rocket" href="/clients/ky">
+  Alternative with retry support
+</Card>
+
+<Card title="Retry Configuration" icon="rotate-right" href="/clients/ofetch#retry-configuration">
+  Configure automatic retries
+</Card>
+
+<Card title="Node.js Features" icon="node-js" href="/clients/ofetch#nodejs-features">
+  Use Node.js optimizations
+</Card>
+
+</CardGroup>

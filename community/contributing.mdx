@@ -1,0 +1,209 @@
+---
+title: Contributing
+description: Learn how to contribute to OpenAPI TypeScript and help build the code generation ecosystem trusted by thousands.
+---
+
+# Contributing to OpenAPI TypeScript
+
+OpenAPI TypeScript is building an OpenAPI to TypeScript code generator ecosystem. It's trusted by thousands of companies – from YC startups to Fortune 500 enterprises – and powers products used by millions worldwide, including Vercel, OpenCode, and PayPal.
+
+We welcome contributors of all backgrounds and experience levels. Whether you're fixing a typo or building a new feature, your input matters.
+
+<Note>
+New to open source? Check out the [Open Source Guide](https://opensource.guide/) or [First Contributions](https://github.com/firstcontributions/first-contributions) for helpful information on contributing to open source projects.
+</Note>
+
+## Ways to Contribute
+
+There are many ways to contribute to OpenAPI TypeScript. Most of them don't involve writing any code!
+
+<Steps>
+  <Step title="Read the documentation">
+    Start with our guides and documentation. If you find anything broken or confusing, you can suggest improvements by opening an issue or pull request.
+  </Step>
+  
+  <Step title="Browse open issues">
+    Help others by providing workarounds, asking for clarification, triaging, or suggesting labels on [open issues](https://github.com/hey-api/openapi-ts/issues). If you see something you'd like to work on, consider opening a pull request.
+  </Step>
+  
+  <Step title="Participate in discussions">
+    Ask or [answer questions](https://github.com/orgs/hey-api/discussions), provide feedback, or suggest new ideas. Every idea is welcome, no matter how big or small.
+  </Step>
+  
+  <Step title="Engage on social media">
+    Help others discover OpenAPI TypeScript by engaging with our posts on [LinkedIn](https://linkedin.com/company/heyapi), [Bluesky](https://bsky.app/profile/heyapi.dev), or [X](https://x.com/mrlubos). Share your experiences in your communities.
+  </Step>
+</Steps>
+
+## Development Setup
+
+### Prerequisites
+
+You should have a working knowledge of:
+- [Git](https://git-scm.com)
+- [Node.js](https://nodejs.org/en) (>=20.19.0)
+- [pnpm](https://pnpm.io) (10.28.2)
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/hey-api/openapi-ts.git
+cd openapi-ts
+
+# Install dependencies
+pnpm install
+
+# Build packages
+pnpm build --filter="@hey-api/**"
+
+# Run tests
+pnpm test
+```
+
+<Warning>
+**Do not cancel build commands** - they take significant time:
+- `pnpm install`: ~1m 20s
+- `pnpm build --filter="@hey-api/**"`: ~2m 15s
+- `pnpm test`: ~1m 5s
+</Warning>
+
+### Development Commands
+
+```bash
+# Watch mode for openapi-ts (runs from dev/)
+pnpm dev:ts
+
+# Test specific package
+pnpm tt -- @hey-api/openapi-ts
+
+# Test watch mode
+pnpm tw -- @hey-api/openapi-ts
+
+# Update test snapshots
+pnpm tu -- @hey-api/openapi-ts
+
+# Type check
+pnpm typecheck
+
+# Lint and format
+pnpm lint:fix
+```
+
+## Repository Structure
+
+The project is a monorepo built with pnpm workspaces and Turbo:
+
+```
+packages/
+  openapi-ts/          # Main CLI tool and library
+  openapi-python/      # Python DSL generation
+  codegen-core/        # Core code generation utilities
+  shared/              # Cross-package utilities
+  types/               # Shared type definitions
+  custom-client/       # Custom HTTP client implementations
+  nuxt/                # Nuxt.js integration
+  vite-plugin/         # Vite plugin
+examples/              # 16+ framework-specific examples
+docs/                  # VitePress documentation site
+specs/                 # OpenAPI test specifications
+```
+
+## Code Conventions
+
+<Note>
+Our pre-commit hooks automatically format and lint your code, but it's good to know the conventions:
+</Note>
+
+- **ESM modules only** (`.mts`/`.mjs` extensions in builds)
+- **UTF-8, LF line endings, 2-space indentation**
+- **Single quotes** (enforced by oxfmt)
+- **Imports sorted** by eslint-plugin-simple-import-sort
+- **Object/interface keys sorted alphabetically**
+- **Destructured keys sorted alphabetically**
+
+### Tooling
+
+- **Package manager**: pnpm 10.28.2 (strict engine, exact versions)
+- **Node**: >=20.19.0
+- **Build**: Turbo 2.8.0 + tsdown + Rollup
+- **Language**: TypeScript 5.9.3, ESM only
+- **Formatter**: oxfmt 0.27.0
+- **Linter**: ESLint 9 flat config
+- **Tests**: Vitest 3.2.4
+- **Pre-commit**: Husky + lint-staged
+- **Releases**: Changesets
+
+## Pull Request Guidelines
+
+Your pull request must:
+
+<Steps>
+  <Step title="Address a single issue">
+    Focus on one issue or feature per pull request to make reviews easier.
+  </Step>
+  
+  <Step title="Contain clean history">
+    Use small, incremental, logically separate commits with no merge commits.
+  </Step>
+  
+  <Step title="Use clear commit messages">
+    Follow [Conventional Commits](https://www.conventionalcommits.org/) format:
+    - `feat:` for new features
+    - `fix:` for bug fixes
+    - `chore:` for maintenance
+    - `docs:` for documentation
+    - `refactor:` for code refactoring
+  </Step>
+  
+  <Step title="Be mergeable">
+    Ensure your branch can be merged automatically without conflicts.
+  </Step>
+</Steps>
+
+## Pre-commit Checklist
+
+Run these commands before committing (Husky runs format + lint automatically):
+
+```bash
+pnpm lint:fix       # Auto-fix formatting and linting
+pnpm typecheck      # Type check
+pnpm test           # Run tests
+```
+
+<Note>
+Some linting warnings in `.gen/snapshots/` directories are expected for generated code.
+</Note>
+
+## Working with Examples
+
+The `examples` folder contains integration examples that demonstrate how to use `@hey-api/openapi-ts` with different frameworks.
+
+### Generating Example Code
+
+When you make changes that affect code generation:
+
+```bash
+# Build packages first
+pnpm build --filter="@hey-api/**"
+
+# Regenerate all examples
+pnpm examples:generate
+
+# Verify examples are in sync
+pnpm examples:check
+```
+
+<Warning>
+Think of generated example code as snapshot tests - they should always reflect the current state of the code generator.
+</Warning>
+
+## Need Help?
+
+If you need guidance, help with technical writing, or want to bring a feature idea to life:
+
+- Tag [`@mrlubos`](https://github.com/mrlubos) on GitHub
+- Open a [discussion](https://github.com/orgs/hey-api/discussions)
+- Provide enough relevant information, and we'll do our best to assist you
+
+We're excited to see what you'll contribute!

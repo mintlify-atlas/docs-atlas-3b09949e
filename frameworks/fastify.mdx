@@ -1,0 +1,498 @@
+---
+title: 'Fastify'
+description: 'Generate type-safe route handlers for Fastify servers'
+icon: 'bolt'
+---
+
+The `fastify` plugin generates type-safe route handler definitions for Fastify servers, ensuring your route handlers match your OpenAPI specification at compile time.
+
+## Installation
+
+Install OpenAPI TypeScript:
+
+```bash
+npm install @hey-api/openapi-ts --save-dev
+```
+
+<Note>
+The Fastify plugin generates types only. You'll need the `fastify` package for your runtime server.
+</Note>
+
+## Configuration
+
+Add the `fastify` plugin to your OpenAPI TypeScript configuration:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.yaml',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    'fastify',
+    '@hey-api/typescript',
+  ],
+});
+```
+
+## What Gets Generated
+
+The plugin generates a `RouteHandlers` type that maps each operation to a Fastify `RouteHandler` type with proper typing for:
+
+- Request body (`Body`)
+- Query parameters (`Querystring`)
+- Path parameters (`Params`)
+- Headers (`Headers`)
+- Response data (`Reply`)
+
+### Example Generated Code
+
+Given this OpenAPI operation:
+
+```yaml openapi.yaml
+paths:
+  /pet/{petId}:
+    get:
+      operationId: showPetById
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pet details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+```
+
+The plugin generates:
+
+```typescript fastify.gen.ts
+import type { RouteHandler } from 'fastify';
+import type { ShowPetByIdData, ShowPetByIdResponses } from './types.gen';
+
+export type RouteHandlers = {
+  showPetById: RouteHandler<{
+    Params: ShowPetByIdData['path'];
+    Reply: ShowPetByIdResponses;
+  }>;
+};
+```
+
+## Usage
+
+Implement your route handlers with full type safety:
+
+```typescript handlers.ts
+import type { RouteHandlers } from './client/fastify.gen';
+
+export const handlers: RouteHandlers = {
+  showPetById(request, reply) {
+    // request.params is typed as { petId: string }
+    const petId = request.params.petId;
+    
+    // reply.send() expects the correct response type
+    reply.send({
+      id: petId,
+      name: 'Fluffy',
+      status: 'available',
+    });
+  },
+  
+  createPet(request, reply) {
+    // request.body is fully typed
+    const pet = request.body;
+    
+    // TypeScript ensures you return the correct response
+    reply.code(201).send(pet);
+  },
+  
+  listPets(request, reply) {
+    // request.query is typed with query parameters
+    const limit = request.query?.limit ?? 10;
+    
+    reply.send([]);
+  },
+};
+```
+
+## Integration with Fastify
+
+Use the generated types with popular Fastify plugins like `fastify-openapi-glue`:
+
+```typescript server.ts
+import Fastify from 'fastify';
+import glue from 'fastify-openapi-glue';
+import { readFileSync } from 'fs';
+import { handlers } from './handlers';
+
+const fastify = Fastify();
+
+// Load your OpenAPI specification
+const specification = JSON.parse(
+  readFileSync('./openapi.json', 'utf-8')
+);
+
+// Register with type-safe handlers
+fastify.register(glue, {
+  specification,
+  serviceHandlers: handlers,
+});
+
+fastify.listen({ port: 3000 });
+```
+
+## Type Safety Benefits
+
+### Request Parameter Typing
+
+The plugin extracts parameter types from your OpenAPI spec:
+
+```typescript
+// Path parameters
+showPetById(request, reply) {
+  request.params.petId // string (required)
+}
+
+// Query parameters
+listPets(request, reply) {
+  request.query?.limit    // number | undefined
+  request.query?.status   // 'available' | 'pending' | 'sold' | undefined
+}
+
+// Request body
+createPet(request, reply) {
+  request.body.name    // string
+  request.body.status  // 'available' | 'pending' | 'sold'
+}
+```
+
+### Response Type Safety
+
+Return types are validated against your API spec:
+
+```typescript
+showPetById(request, reply) {
+  reply.send({
+    id: 123,
+    name: 'Fluffy',
+    status: 'available',
+  }); // ✓ Type-safe!
+  
+  reply.send({ invalid: 'data' }); // ✗ Type error!
+}
+```
+
+### Error Response Typing
+
+Error responses from your OpenAPI spec are included in the `Reply` type:
+
+```typescript
+showPetById(request, reply) {
+  if (!petExists) {
+    // 404 error response is typed
+    reply.code(404).send({
+      code: 404,
+      message: 'Pet not found',
+    });
+  }
+}
+```
+
+## Configuration Options
+
+The `fastify` plugin has minimal configuration:
+
+<ResponseField name="includeInEntry" type="boolean" default={false}>
+  Whether to export the `RouteHandlers` type from the main `index.ts` entry file.
+</ResponseField>
+
+```typescript openapi-ts.config.ts
+{
+  name: 'fastify',
+  includeInEntry: true,
+}
+```
+
+## Complete Example
+
+<Steps>
+
+<Step title="Define your OpenAPI specification">
+
+```yaml openapi.yaml
+openapi: 3.1.0
+info:
+  title: Pet Store API
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 100
+      responses:
+        '200':
+          description: List of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPet'
+      responses:
+        '201':
+          description: Pet created
+  /pets/{petId}:
+    get:
+      operationId: showPetById
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pet details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+          enum: [available, pending, sold]
+    NewPet:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [available, pending, sold]
+```
+
+</Step>
+
+<Step title="Configure OpenAPI TypeScript">
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: {
+    path: './src/client',
+  },
+  plugins: ['fastify', '@hey-api/typescript'],
+});
+```
+
+</Step>
+
+<Step title="Generate types">
+
+```bash
+npx @hey-api/openapi-ts
+```
+
+</Step>
+
+<Step title="Implement handlers">
+
+```typescript src/handlers.ts
+import type { RouteHandlers } from './client/fastify.gen';
+
+const pets: Array<{ id: number; name: string; status: string }> = [];
+let nextId = 1;
+
+export const serviceHandlers: RouteHandlers = {
+  listPets(request, reply) {
+    const limit = request.query?.limit ?? 10;
+    reply.send(pets.slice(0, limit));
+  },
+  
+  createPet(request, reply) {
+    const newPet = {
+      id: nextId++,
+      ...request.body,
+    };
+    pets.push(newPet);
+    reply.code(201).send(newPet);
+  },
+  
+  showPetById(request, reply) {
+    const pet = pets.find(p => p.id === Number(request.params.petId));
+    if (!pet) {
+      reply.code(404).send({ error: 'Pet not found' });
+      return;
+    }
+    reply.send(pet);
+  },
+};
+```
+
+</Step>
+
+<Step title="Create server">
+
+```typescript src/server.ts
+import Fastify from 'fastify';
+import glue from 'fastify-openapi-glue';
+import { readFileSync } from 'fs';
+import { serviceHandlers } from './handlers';
+
+export async function buildServer() {
+  const fastify = Fastify({ logger: true });
+  
+  const specification = JSON.parse(
+    readFileSync('./openapi.json', 'utf-8')
+  );
+  
+  await fastify.register(glue, {
+    specification,
+    serviceHandlers,
+  });
+  
+  return fastify;
+}
+
+buildServer().then(server => {
+  server.listen({ port: 3000 }, (err) => {
+    if (err) {
+      server.log.error(err);
+      process.exit(1);
+    }
+  });
+});
+```
+
+</Step>
+
+</Steps>
+
+## Generated Code Structure
+
+The plugin generates a single file:
+
+```
+src/client/
+├── fastify.gen.ts    # RouteHandlers type
+├── types.gen.ts      # Request/response types
+└── index.ts          # Main entry (if includeInEntry: true)
+```
+
+## Dependencies
+
+The `fastify` plugin declares a dependency on `@hey-api/typescript` for type generation:
+
+```typescript
+plugins: [
+  'fastify',        // Generates RouteHandlers
+  '@hey-api/typescript',  // Generates request/response types
+]
+```
+
+## How It Works
+
+For each operation in your OpenAPI spec, the plugin:
+
+1. **Extracts operation metadata** - Reads `operationId`, parameters, request body, and responses
+2. **Maps to Fastify types** - Converts OpenAPI parameters to Fastify's type system:
+   - `parameters[in=path]` → `Params`
+   - `parameters[in=query]` → `Querystring`
+   - `parameters[in=header]` → `Headers`
+   - `requestBody` → `Body`
+   - `responses` → `Reply`
+3. **Generates handler signature** - Creates a `RouteHandler<T>` type with all request/response types
+4. **Combines into RouteHandlers** - Exports a single type mapping operation IDs to handler types
+
+## Best Practices
+
+<Note>
+**Use with fastify-openapi-glue** - This plugin works perfectly with `fastify-openapi-glue` to automatically route requests to your handlers based on the OpenAPI spec.
+</Note>
+
+<Steps>
+
+<Step title="Keep handlers and spec in sync">
+  Run `npx @hey-api/openapi-ts` after updating your OpenAPI specification to regenerate types.
+</Step>
+
+<Step title="Leverage TypeScript strict mode">
+  Enable `strict: true` in `tsconfig.json` to catch type mismatches at compile time.
+</Step>
+
+<Step title="Use operationId consistently">
+  Ensure every operation in your OpenAPI spec has a unique `operationId` - this becomes your handler function name.
+</Step>
+
+<Step title="Handle all response types">
+  The `Reply` type includes all possible responses from your spec. Handle success and error cases appropriately.
+</Step>
+
+</Steps>
+
+## Limitations
+
+- The plugin generates types only, not runtime validation
+- Default responses are omitted from the `Reply` type to avoid overly broad types
+- Only operations with `operationId` are included in the `RouteHandlers` type
+
+## Migration from Untyped Handlers
+
+Before:
+```typescript
+const handlers = {
+  getPet(request, reply) {
+    const id = request.params.id; // any
+    reply.send({ id, name: 'Fluffy' }); // no type checking
+  },
+};
+```
+
+After:
+```typescript
+import type { RouteHandlers } from './client/fastify.gen';
+
+const handlers: RouteHandlers = {
+  getPet(request, reply) {
+    const id = request.params.id; // string (typed!)
+    reply.send({ id, name: 'Fluffy' }); // type-checked!
+  },
+};
+```
+
+TypeScript will immediately flag any mismatches between your handlers and your OpenAPI specification.

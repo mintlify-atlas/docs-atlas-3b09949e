@@ -1,0 +1,508 @@
+---
+title: "Transformers Plugin"
+description: "Transform response data at runtime with custom type transformations"
+---
+
+The `@hey-api/transformers` plugin generates runtime transformers that convert response data into desired formats. This is useful for transforming ISO date strings into Date objects, converting large integers into BigInt values, or applying custom transformations.
+
+<Warning>
+  Transformation adds runtime overhead. Only use when necessary.
+</Warning>
+
+## Installation
+
+The Transformers plugin is included when you install `@hey-api/openapi-ts`:
+
+```bash
+npm install @hey-api/openapi-ts --save-dev
+```
+
+## Configuration
+
+Add the plugin to your `openapi-ts.config.ts`:
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/client-fetch',
+    '@hey-api/transformers',
+    {
+      name: '@hey-api/sdk',
+      transformer: '@hey-api/transformers',
+    },
+  ],
+});
+```
+
+## What It Generates
+
+The Transformers plugin generates a `transformers.gen.ts` file containing functions that transform response data:
+
+<CodeGroup>
+
+```typescript Generated Transformers
+// transformers.gen.ts
+import type { GetUserResponse } from './types.gen';
+
+const userSchemaResponseTransformer = (data: any) => {
+  if (data.createdAt) {
+    data.createdAt = new Date(data.createdAt);
+  }
+  if (data.updatedAt) {
+    data.updatedAt = new Date(data.updatedAt);
+  }
+  return data;
+};
+
+export const getUserResponseTransformer = async (
+  data: any
+): Promise<GetUserResponse> => {
+  data = userSchemaResponseTransformer(data);
+  return data;
+};
+```
+
+```typescript Usage with SDK
+import { getUser } from './client/sdk.gen';
+
+const { data } = await getUser({ path: { userId: '123' } });
+
+// data.createdAt is now a Date object, not a string!
+console.log(data.createdAt.getFullYear()); // 2024
+console.log(data.createdAt instanceof Date); // true
+```
+
+```typescript Manual Usage
+import { getUserResponseTransformer } from './client/transformers.gen';
+
+const rawData = await fetch('/api/users/123').then(r => r.json());
+const transformedData = await getUserResponseTransformer(rawData);
+
+// Now dates are Date objects
+console.log(transformedData.createdAt instanceof Date); // true
+```
+
+</CodeGroup>
+
+## Configuration Options
+
+### `dates`
+
+Convert date strings into Date objects.
+
+<ParamField path="dates" type="boolean" default="true">
+  Automatically transforms ISO 8601 date strings (format: `date`, `date-time`) into JavaScript Date objects.
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/transformers',
+  dates: true,
+}
+```
+
+**Before transformation:**
+```json
+{
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+```
+
+**After transformation:**
+```typescript
+{
+  createdAt: Date // JavaScript Date object
+}
+```
+
+### `bigInt`
+
+Convert long integers into BigInt values.
+
+<ParamField path="bigInt" type="boolean" default="true">
+  Transforms integers with format `int64` into BigInt values for precise large number handling.
+</ParamField>
+
+```typescript
+{
+  name: '@hey-api/transformers',
+  bigInt: true,
+}
+```
+
+**Before transformation:**
+```json
+{
+  "userId": "9223372036854775807"
+}
+```
+
+**After transformation:**
+```typescript
+{
+  userId: 9223372036854775807n // BigInt
+}
+```
+
+### `transformers`
+
+Add custom transformation logic.
+
+<ParamField path="transformers" type="Array<ExpressionTransformer>" default="[]">
+  Array of custom transformer functions to apply to the generated code.
+</ParamField>
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+import type { ExpressionTransformer } from '@hey-api/transformers';
+
+const customTransformer: ExpressionTransformer = ({ schema, value }) => {
+  // Custom transformation logic
+  if (schema.format === 'custom-format') {
+    return ts.factory.createCallExpression(
+      ts.factory.createIdentifier('customParser'),
+      undefined,
+      [value]
+    );
+  }
+};
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/transformers',
+      transformers: [customTransformer],
+    },
+  ],
+});
+```
+
+### `typeTransformers`
+
+Modify the TypeScript types generated for transformed data.
+
+<ParamField path="typeTransformers" type="Array<TypeTransformer>" default="[]">
+  Array of custom type transformer functions that modify the TypeScript types.
+</ParamField>
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+import type { TypeTransformer } from '@hey-api/transformers';
+import ts from 'typescript';
+
+const customTypeTransformer: TypeTransformer = ({ schema }) => {
+  if (schema.format === 'date-time') {
+    // Return Date type instead of string
+    return ts.factory.createTypeReferenceNode('Date');
+  }
+};
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/transformers',
+      typeTransformers: [customTypeTransformer],
+    },
+  ],
+});
+```
+
+## Built-in Transformations
+
+### Date/DateTime Transformation
+
+Automatically enabled when `dates: true` (default).
+
+**OpenAPI Schema:**
+```yaml
+User:
+  type: object
+  properties:
+    createdAt:
+      type: string
+      format: date-time
+    birthDate:
+      type: string
+      format: date
+```
+
+**Generated Type:**
+```typescript
+export type User = {
+  createdAt: Date;
+  birthDate: Date;
+};
+```
+
+**Generated Transformer:**
+```typescript
+const userSchemaResponseTransformer = (data: any) => {
+  if (data.createdAt) {
+    data.createdAt = new Date(data.createdAt);
+  }
+  if (data.birthDate) {
+    data.birthDate = new Date(data.birthDate);
+  }
+  return data;
+};
+```
+
+### BigInt Transformation
+
+Automatically enabled when `bigInt: true` (default).
+
+**OpenAPI Schema:**
+```yaml
+Account:
+  type: object
+  properties:
+    balance:
+      type: integer
+      format: int64
+```
+
+**Generated Type:**
+```typescript
+export type Account = {
+  balance: bigint;
+};
+```
+
+**Generated Transformer:**
+```typescript
+const accountSchemaResponseTransformer = (data: any) => {
+  if (data.balance) {
+    data.balance = BigInt(data.balance.toString());
+  }
+  return data;
+};
+```
+
+## Use Cases
+
+### Working with Dates
+
+```typescript
+import { getEvents } from './client/sdk.gen';
+
+const { data } = await getEvents();
+
+// Dates are automatically transformed
+data.events.forEach(event => {
+  // Type-safe Date operations
+  console.log(event.startDate.toLocaleDateString());
+  console.log(event.endDate.getTime());
+  
+  // Calculate duration
+  const duration = event.endDate.getTime() - event.startDate.getTime();
+  console.log(`Duration: ${duration / 1000 / 60} minutes`);
+});
+```
+
+### Handling Large Numbers
+
+```typescript
+import { getAccount } from './client/sdk.gen';
+
+const { data } = await getAccount({ path: { accountId: '123' } });
+
+// Balance is a BigInt
+console.log(typeof data.balance); // 'bigint'
+console.log(data.balance > 1000000000000n); // true
+
+// Precise arithmetic
+const newBalance = data.balance + 500n;
+const percentage = (data.balance * 100n) / 1000000n;
+```
+
+### Selective Transformations
+
+Disable specific transformations you don't need:
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/transformers',
+      dates: true,   // Transform dates
+      bigInt: false, // Don't transform BigInt
+    },
+  ],
+});
+```
+
+## Common Patterns
+
+### Basic Date Transformation
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/client-fetch',
+    '@hey-api/transformers',
+    {
+      name: '@hey-api/sdk',
+      transformer: '@hey-api/transformers',
+    },
+  ],
+});
+```
+
+### Disable All Transformations
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/transformers',
+      dates: false,
+      bigInt: false,
+    },
+  ],
+});
+```
+
+### Custom Currency Transformer
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+import ts from 'typescript';
+
+const currencyTransformer = ({ schema, value }) => {
+  if (schema.format === 'currency') {
+    // Transform currency strings to numbers
+    return ts.factory.createCallExpression(
+      ts.factory.createIdentifier('parseFloat'),
+      undefined,
+      [value]
+    );
+  }
+};
+
+export default defineConfig({
+  input: './openapi.yaml',
+  output: { path: './src/client' },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/transformers',
+      transformers: [currencyTransformer],
+    },
+  ],
+});
+```
+
+## Performance Considerations
+
+<Warning>
+  Transformers add runtime overhead. Consider these best practices:
+</Warning>
+
+1. **Only transform when necessary** - Disable transformations you don't need
+2. **Avoid deep transformations** - Transformations traverse the entire object tree
+3. **Use with caching** - Consider memoizing transformed results
+4. **Test performance** - Measure impact on your application
+
+```typescript
+// Good: Only transform dates
+{
+  name: '@hey-api/transformers',
+  dates: true,
+  bigInt: false,
+}
+
+// Avoid: Transforming everything if you only need dates
+{
+  name: '@hey-api/transformers',
+  dates: true,
+  bigInt: true,
+  transformers: [many, custom, transformers],
+}
+```
+
+## Type Safety
+
+When using transformers, the generated TypeScript types reflect the transformed data:
+
+```typescript
+// Without transformers
+export type User = {
+  createdAt: string; // ISO string
+};
+
+// With transformers (dates: true)
+export type User = {
+  createdAt: Date; // Date object
+};
+```
+
+This ensures your code is type-safe and you get proper IDE autocomplete:
+
+```typescript
+const { data } = await getUser({ path: { userId: '123' } });
+
+// TypeScript knows this is a Date
+data.createdAt.getFullYear(); // ✓ Valid
+data.createdAt.toUpperCase(); // ✗ Type error
+```
+
+## Export Configuration
+
+By default, transformers are not included in the entry file (`index.ts`). To include them:
+
+```typescript
+{
+  name: '@hey-api/transformers',
+  includeInEntry: true, // Export transformers from index.ts
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="SDK Plugin" icon="code" href="/core/sdk">
+  Use transformers with generated SDK functions.
+</Card>
+
+<Card title="TypeScript Plugin" icon="brackets-curly" href="/core/typescript">
+  Customize the generated TypeScript types.
+</Card>
+
+<Card title="Validators" icon="shield-check" href="/validators/overview">
+  Validate transformed data at runtime.
+</Card>
+
+<Card title="HTTP Clients" icon="globe" href="/clients/overview">
+  Choose an HTTP client for making requests.
+</Card>
+
+</CardGroup>

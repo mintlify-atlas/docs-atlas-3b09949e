@@ -1,0 +1,341 @@
+---
+title: Migration Guide
+description: Migrating between versions of OpenAPI TypeScript with breaking changes.
+---
+
+# Migration Guide
+
+While we try to avoid breaking changes, sometimes they're unavoidable to offer you the latest features. This page lists changes that require updates to your code.
+
+<Warning>
+If you run into a problem with migration, please [open an issue](https://github.com/hey-api/openapi-ts/issues).
+</Warning>
+
+## v0.93.0
+
+### Removed Resolver Node
+
+Valibot and Zod plugins no longer expose the `enum.nodes.nullable` node. Both plugins were refactored so that nullable values are handled outside of resolvers.
+
+<Note>
+This change only affects advanced users who were directly using resolver nodes.
+</Note>
+
+## v0.92.0
+
+### Updated Symbol Interface
+
+The `exportFrom` property has been replaced with the `getExportFromFilePath()` function. This allows you to dynamically determine export paths based on symbol properties.
+
+<Note>
+This is a low-level feature, so you're most likely unaffected unless you're building custom plugins.
+</Note>
+
+## v0.91.0
+
+### Removed CommonJS (CJS) Support
+
+`@hey-api/openapi-ts` is now ESM-only. This change simplifies the codebase, improves tree-shaking, and enables better integration with modern bundlers and TypeScript tooling.
+
+<Steps>
+  <Step title="Update your imports">
+    If you have previously written:
+    
+    ```js
+    const { defineConfig } = require('@hey-api/openapi-ts');
+    ```
+    
+    Migrate by updating your static imports:
+    
+    ```js
+    import { defineConfig } from '@hey-api/openapi-ts';
+    ```
+  </Step>
+  
+  <Step title="Use dynamic imports for CJS">
+    If you are in a CJS environment, you can still load the package dynamically:
+    
+    ```js
+    const { defineConfig } = await import('@hey-api/openapi-ts');
+    ```
+  </Step>
+  
+  <Step title="Pin to previous version if needed">
+    If your environment cannot use ESM, pin to a previous version.
+  </Step>
+</Steps>
+
+## v0.90.0
+
+### Resolvers API
+
+The Resolvers API has been simplified and expanded to provide more consistent behavior across plugins.
+
+<Note>
+This affects users of Valibot and Zod plugins who were using custom resolvers.
+</Note>
+
+### Structure API
+
+The SDK plugin and Angular plugin now implement the Structure API, enabling more complex structures and fixing several known issues.
+
+<Warning>
+Some Structure APIs are incompatible with the previous configuration, most notably the `methodNameBuilder` function.
+</Warning>
+
+#### Migration Example
+
+The `methodNameBuilder` function no longer accepts the operation object as an argument directly. Read the SDK Output section to familiarize yourself with the Structure API.
+
+If you're unable to migrate your configuration to the new syntax, please [open an issue](https://github.com/hey-api/openapi-ts/issues).
+
+## v0.89.0
+
+### Prefer Named Exports
+
+This release changes the default for `index.ts` to prefer named exports. Named exports may lead to better IDE and bundler performance.
+
+```js
+export default {
+  input: 'hey-api/backend',
+  output: {
+    path: 'src/client',
+    preferExportAll: true, // Set to true to use asterisk exports
+  },
+};
+```
+
+### Removed `symbol:setValue:*` Events
+
+These events have been removed in favor of `node:set:*` events.
+
+<Note>
+This only affects custom plugin developers.
+</Note>
+
+## v0.88.0
+
+### Removed `compiler` and `tsc` Exports
+
+This release removes the `compiler` utility functions. Instead, it introduces a new TypeScript DSL exposed under the `$` symbol. All plugins now use this interface.
+
+<Warning>
+You may notice slight changes in the generated output.
+</Warning>
+
+## v0.87.0
+
+### Removed Legacy Clients
+
+This release removes support for legacy clients and plugins. Please migrate to the new clients.
+
+<Steps>
+  <Step title="Identify legacy client usage">
+    Check if you're using any of these legacy clients:
+    - `legacy/fetch`
+    - `legacy/axios`
+    - `legacy/angular`
+    - `legacy/node`
+    - `legacy/xhr`
+  </Step>
+  
+  <Step title="Migrate to new clients">
+    Update your configuration to use the new client plugins:
+    - `@hey-api/client-fetch`
+    - `@hey-api/client-axios`
+    - `@hey-api/client-angular`
+  </Step>
+</Steps>
+
+If you're unable to migrate due to a missing feature, let us know on [GitHub](https://github.com/hey-api/openapi-ts/issues).
+
+## v0.86.0
+
+### Removed Node 18 Support
+
+This release bumps the minimum required Node version to **20.19.0**.
+
+```bash
+# Update your Node version
+nvm install 20.19.0
+nvm use 20.19.0
+```
+
+## v0.85.0
+
+### Updated `output` Options
+
+We made the `output` configuration more consistent by using `null` to represent disabled options.
+
+```js
+export default {
+  input: 'hey-api/backend',
+  output: {
+    format: null,      // was: false
+    lint: null,        // was: false
+    path: 'src/client',
+    tsConfigPath: null, // was: 'off'
+  },
+};
+```
+
+### Updated Pinia Colada Query Options
+
+Pinia Colada query options now use `defineQueryOptions` to improve reactivity support.
+
+<Accordion title="No params">
+  ```ts
+  useQuery(getPetsQuery);
+  ```
+</Accordion>
+
+<Accordion title="Constant params">
+  ```ts
+  useQuery(getPetByIdQuery, () => ({
+    path: {
+      petId: 1,
+    },
+  }));
+  ```
+</Accordion>
+
+<Accordion title="Reactive params">
+  ```ts
+  const petId = ref<number | null>(1);
+  
+  useQuery(getPetByIdQuery, () => ({
+    path: {
+      petId: petId.value,
+    },
+  }));
+  ```
+</Accordion>
+
+<Accordion title="With properties">
+  ```ts
+  const petId = ref<number | null>(1);
+  
+  useQuery(() => ({
+    ...getPetByIdQuery({
+      path: { petId: petId.value as number },
+    }),
+    enabled: () => petId.value != null,
+  }));
+  ```
+</Accordion>
+
+## v0.81.0
+
+### Server-Sent Events (SSE)
+
+This release adds support for server-sent events (SSE). Instead of treating `text/event-stream` content types as regular HTTP methods, we now generate SSE streams.
+
+<CodeGroup>
+```js Before
+const { data } = await foo();
+console.log(data.type);
+```
+
+```js After
+const { stream } = await foo();
+for await (const event of stream) {
+  console.log(event.type);
+}
+```
+</CodeGroup>
+
+## v0.73.0
+
+### Bundle `@hey-api/client-*` Plugins
+
+All Hey API clients are now bundled by default. You can remove any installed client packages:
+
+```bash
+npm uninstall @hey-api/client-fetch
+```
+
+<Note>
+No additional dependencies are required to generate working client code.
+</Note>
+
+## v0.63.0
+
+### Client Plugins
+
+Clients are now plugins generating their own `client.gen.ts` file.
+
+```js
+export default {
+  input: 'hey-api/backend',
+  output: 'src/client',
+  plugins: ['@hey-api/client-fetch'], // Moved from client option
+};
+```
+
+### Added `client.gen.ts` File
+
+The internal `client` instance is now in `client.gen.ts` instead of `sdk.gen.ts`.
+
+```js
+import { client } from 'client/client.gen'; // Updated path
+```
+
+## Common Migration Patterns
+
+<AccordionGroup>
+  <Accordion title="Updating imports after file renames">
+    Many releases have renamed generated files. Use find-and-replace to update imports:
+    
+    ```js
+    // Example: models.gen.ts → types.gen.ts
+    import type { Model } from 'client/models.gen' // Old
+    import type { Model } from 'client/types.gen'  // New
+    ```
+  </Accordion>
+  
+  <Accordion title="Configuration option moves">
+    Configuration options often move to more logical locations:
+    
+    ```js
+    // Example: Moving format option
+    export default {
+      format: 'prettier',  // Old (root level)
+      output: {
+        format: 'prettier', // New (under output)
+        path: 'src/client',
+      },
+    };
+    ```
+  </Accordion>
+  
+  <Accordion title="Preserving old behavior">
+    Most breaking changes include a way to preserve the old behavior:
+    
+    ```js
+    // Example: Preserving class-based SDKs
+    export default {
+      plugins: [
+        {
+          name: '@hey-api/sdk',
+          asClass: true, // Preserves old class-based behavior
+        },
+      ],
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card title="Open an Issue" icon="github" href="https://github.com/hey-api/openapi-ts/issues">
+    Report migration problems or ask questions
+  </Card>
+  <Card title="View Changelog" icon="list" href="/community/changelog">
+    See detailed changes for each version
+  </Card>
+</CardGroup>
+
+<Note>
+We publish migration notes for every breaking release. You might not be impacted by a breaking change if you don't use the affected features.
+</Note>

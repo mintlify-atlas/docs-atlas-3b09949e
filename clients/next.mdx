@@ -1,0 +1,633 @@
+---
+title: "Next.js Client"
+description: "Optimized HTTP client for Next.js with server components and caching"
+---
+
+The Next.js client is optimized for Next.js applications with support for server components, server actions, and Next.js caching features.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @hey-api/client-next
+```
+
+```bash pnpm
+pnpm add @hey-api/client-next
+```
+
+```bash yarn
+yarn add @hey-api/client-next
+```
+
+```bash bun
+bun add @hey-api/client-next
+```
+
+</CodeGroup>
+
+## Basic Usage
+
+<Steps>
+
+<Step title="Create a client instance">
+
+```typescript
+import { createClient } from '@hey-api/client-next';
+
+export const client = createClient({
+  baseUrl: 'https://api.example.com',
+});
+```
+
+</Step>
+
+<Step title="Use in Server Components">
+
+```typescript
+import { client } from '@/lib/api-client';
+
+export default async function UsersPage() {
+  const { data } = await client.get({
+    url: '/users',
+  });
+
+  return (
+    <div>
+      {data?.map((user) => (
+        <div key={user.id}>{user.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+</Step>
+
+<Step title="Use in Client Components">
+
+```typescript
+'use client';
+
+import { client } from '@/lib/api-client';
+import { useEffect, useState } from 'react';
+
+export default function UsersClient() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    client.get({ url: '/users' }).then(({ data }) => {
+      if (data) setUsers(data);
+    });
+  }, []);
+
+  return (
+    <div>
+      {users.map((user) => (
+        <div key={user.id}>{user.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+</Step>
+
+</Steps>
+
+## Configuration
+
+The Next.js client extends the Fetch client with Next.js-specific features:
+
+### Client Options
+
+```typescript
+import { createClient } from '@hey-api/client-next';
+
+const client = createClient({
+  // Base URL for all requests
+  baseUrl: 'https://api.example.com',
+
+  // Default headers
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key',
+  },
+
+  // Custom fetch implementation
+  fetch: customFetch,
+
+  // Response parsing format
+  parseAs: 'json', // 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'stream' | 'auto'
+
+  // Error handling
+  throwOnError: false,
+
+  // Authentication
+  auth: async (auth) => getToken(),
+
+  // Body serialization
+  bodySerializer: (body) => JSON.stringify(body),
+
+  // Query serialization
+  querySerializer: {
+    array: { style: 'form', explode: true },
+    object: { style: 'deepObject', explode: true },
+  },
+
+  // Request validator
+  requestValidator: async (data) => validateRequest(data),
+
+  // Response transformer
+  responseTransformer: async (data) => transformResponse(data),
+
+  // Response validator
+  responseValidator: async (data) => validateResponse(data),
+
+  // Standard fetch options
+  credentials: 'include',
+  mode: 'cors',
+  cache: 'default',
+});
+```
+
+## HTTP Methods
+
+<Tabs>
+
+<Tab title="GET">
+
+```typescript
+const { data, error, response } = await client.get({
+  url: '/users',
+  query: {
+    page: 1,
+    limit: 10,
+  },
+});
+```
+
+</Tab>
+
+<Tab title="POST">
+
+```typescript
+const { data, error } = await client.post({
+  url: '/users',
+  body: {
+    name: 'John Doe',
+    email: 'john@example.com',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="PUT">
+
+```typescript
+const { data } = await client.put({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    name: 'Jane Doe',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="DELETE">
+
+```typescript
+const { data } = await client.delete({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+```
+
+</Tab>
+
+</Tabs>
+
+## Server Components
+
+Use the client in React Server Components:
+
+```typescript
+import { client } from '@/lib/api-client';
+
+export default async function UserProfile({ params }: { params: { id: string } }) {
+  const { data, error } = await client.get({
+    url: '/users/{id}',
+    path: { id: params.id },
+  });
+
+  if (error) {
+    return <div>Error loading user</div>;
+  }
+
+  return (
+    <div>
+      <h1>{data.name}</h1>
+      <p>{data.email}</p>
+    </div>
+  );
+}
+```
+
+## Server Actions
+
+Use the client in Server Actions:
+
+```typescript
+'use server';
+
+import { client } from '@/lib/api-client';
+import { revalidatePath } from 'next/cache';
+
+export async function createUser(formData: FormData) {
+  const { data, error } = await client.post({
+    url: '/users',
+    body: {
+      name: formData.get('name'),
+      email: formData.get('email'),
+    },
+  });
+
+  if (error) {
+    return { error: 'Failed to create user' };
+  }
+
+  revalidatePath('/users');
+  return { success: true, user: data };
+}
+```
+
+## Route Handlers
+
+Use in Next.js API routes:
+
+```typescript
+import { client } from '@/lib/api-client';
+import { NextResponse } from 'next/server';
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const page = searchParams.get('page') || '1';
+
+  const { data, error } = await client.get({
+    url: '/users',
+    query: { page },
+  });
+
+  if (error) {
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+  }
+
+  return NextResponse.json(data);
+}
+```
+
+## Authentication
+
+### Server-Side Authentication
+
+```typescript
+import { createClient } from '@hey-api/client-next';
+import { cookies } from 'next/headers';
+
+export const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'bearer') {
+      const cookieStore = await cookies();
+      return cookieStore.get('access_token')?.value;
+    }
+  },
+});
+```
+
+### Client-Side Authentication
+
+```typescript
+'use client';
+
+import { createClient } from '@hey-api/client-next';
+import { useSession } from 'next-auth/react';
+
+export function useApiClient() {
+  const { data: session } = useSession();
+
+  const client = createClient({
+    baseUrl: 'https://api.example.com',
+    auth: async (auth) => {
+      if (auth.scheme === 'bearer') {
+        return session?.accessToken;
+      }
+    },
+  });
+
+  return client;
+}
+```
+
+## Caching Strategies
+
+Leverage Next.js caching with the fetch options:
+
+### Force Cache (Default)
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  cache: 'force-cache', // Cache indefinitely
+});
+```
+
+### No Store (Dynamic)
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  cache: 'no-store', // Never cache, always fetch fresh
+});
+```
+
+### Revalidate
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  next: { revalidate: 60 }, // Revalidate every 60 seconds
+});
+```
+
+### On-Demand Revalidation
+
+```typescript
+import { revalidateTag, revalidatePath } from 'next/cache';
+
+// Tag the request
+const { data } = await client.get({
+  url: '/users',
+  next: { tags: ['users'] },
+});
+
+// Revalidate by tag
+revalidateTag('users');
+
+// Or revalidate by path
+revalidatePath('/users');
+```
+
+## Interceptors
+
+### Request Interceptor
+
+```typescript
+client.interceptors.request.use((request, options) => {
+  // Add request ID
+  request.headers.set('X-Request-ID', crypto.randomUUID());
+  return request;
+});
+```
+
+### Response Interceptor
+
+```typescript
+client.interceptors.response.use((response, request, options) => {
+  // Log response time
+  console.log('Response time:', response.headers.get('X-Response-Time'));
+  return response;
+});
+```
+
+### Error Interceptor
+
+```typescript
+client.interceptors.error.use((error, response, request, options) => {
+  // Transform 401 errors
+  if (response?.status === 401) {
+    return { message: 'Unauthorized', code: 'AUTH_ERROR' };
+  }
+  return error;
+});
+```
+
+## Server-Sent Events
+
+Stream real-time data in client components:
+
+```typescript
+'use client';
+
+import { client } from '@/lib/api-client';
+import { useEffect, useState } from 'react';
+
+export default function EventStream() {
+  const [events, setEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    let stream: any;
+
+    async function startStream() {
+      stream = await client.sse.get({
+        url: '/events',
+        onSseEvent: (event) => {
+          setEvents((prev) => [...prev, event.data]);
+        },
+      });
+    }
+
+    startStream();
+
+    return () => {
+      stream?.close();
+    };
+  }, []);
+
+  return (
+    <div>
+      {events.map((event, i) => (
+        <div key={i}>{JSON.stringify(event)}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Advanced Examples
+
+### Dynamic Client Configuration
+
+```typescript
+import { createClient } from '@hey-api/client-next';
+import { headers } from 'next/headers';
+
+export async function getApiClient() {
+  const headersList = await headers();
+  const userAgent = headersList.get('user-agent') || '';
+
+  return createClient({
+    baseUrl: 'https://api.example.com',
+    headers: {
+      'User-Agent': userAgent,
+    },
+  });
+}
+
+// Use in server components
+export default async function Page() {
+  const client = await getApiClient();
+  const { data } = await client.get({ url: '/users' });
+  // ...
+}
+```
+
+### Parallel Data Fetching
+
+```typescript
+import { client } from '@/lib/api-client';
+
+export default async function Dashboard() {
+  const [usersResult, postsResult, statsResult] = await Promise.all([
+    client.get({ url: '/users' }),
+    client.get({ url: '/posts' }),
+    client.get({ url: '/stats' }),
+  ]);
+
+  return (
+    <div>
+      <UsersList users={usersResult.data} />
+      <PostsList posts={postsResult.data} />
+      <StatsWidget stats={statsResult.data} />
+    </div>
+  );
+}
+```
+
+### Request Deduplication
+
+Next.js automatically deduplicates identical fetch requests:
+
+```typescript
+// These will only make one network request
+export default async function Page() {
+  const user1 = await client.get({ url: '/users/1' });
+  const user2 = await client.get({ url: '/users/1' }); // Deduped!
+
+  // ...
+}
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  Client,
+  Config,
+  RequestOptions,
+  RequestResult,
+} from '@hey-api/client-next';
+
+// Type-safe client wrapper
+function createApiClient(config: Config): Client {
+  return createClient({
+    ...config,
+    baseUrl: process.env.NEXT_PUBLIC_API_URL,
+  });
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+
+<Accordion title="Create a centralized client instance">
+  Create a single client instance in a shared module to ensure consistent configuration:
+
+  ```typescript
+  // lib/api-client.ts
+  import { createClient } from '@hey-api/client-next';
+
+  export const client = createClient({
+    baseUrl: process.env.NEXT_PUBLIC_API_URL,
+  });
+  ```
+</Accordion>
+
+<Accordion title="Use Server Components for data fetching">
+  Prefer Server Components for initial data loading to reduce client bundle size:
+
+  ```typescript
+  // app/users/page.tsx (Server Component)
+  export default async function UsersPage() {
+    const { data } = await client.get({ url: '/users' });
+    return <UsersList users={data} />;
+  }
+  ```
+</Accordion>
+
+<Accordion title="Handle errors gracefully">
+  Always check for errors and provide fallbacks:
+
+  ```typescript
+  const { data, error } = await client.get({ url: '/users' });
+
+  if (error) {
+    return <ErrorMessage error={error} />;
+  }
+
+  return <UsersList users={data} />;
+  ```
+</Accordion>
+
+<Accordion title="Leverage caching strategically">
+  Use appropriate caching strategies based on data freshness requirements:
+
+  ```typescript
+  // Static data - cache indefinitely
+  const { data: countries } = await client.get({
+    url: '/countries',
+    cache: 'force-cache',
+  });
+
+  // Dynamic data - always fresh
+  const { data: notifications } = await client.get({
+    url: '/notifications',
+    cache: 'no-store',
+  });
+
+  // Revalidate periodically
+  const { data: posts } = await client.get({
+    url: '/posts',
+    next: { revalidate: 300 }, // 5 minutes
+  });
+  ```
+</Accordion>
+
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Fetch Client" icon="globe" href="/clients/fetch">
+  Learn about the underlying Fetch client
+</Card>
+
+<Card title="Server Components" icon="server" href="/clients/next#server-components">
+  Use in React Server Components
+</Card>
+
+<Card title="Caching" icon="database" href="/clients/next#caching-strategies">
+  Configure caching strategies
+</Card>
+
+<Card title="Authentication" icon="lock" href="/clients/next#authentication">
+  Set up API authentication
+</Card>
+
+</CardGroup>

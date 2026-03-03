@@ -1,0 +1,737 @@
+---
+title: "Nuxt Client"
+description: "Native Nuxt integration with composables and SSR support"
+---
+
+The Nuxt client provides native integration with Nuxt 3, offering composables like `useFetch`, `useAsyncData`, and SSR support out of the box.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @hey-api/client-nuxt
+```
+
+```bash pnpm
+pnpm add @hey-api/client-nuxt
+```
+
+```bash yarn
+yarn add @hey-api/client-nuxt
+```
+
+```bash bun
+bun add @hey-api/client-nuxt
+```
+
+</CodeGroup>
+
+## Basic Usage
+
+<Steps>
+
+<Step title="Create a client instance">
+
+```typescript
+import { createClient } from '@hey-api/client-nuxt';
+
+export const client = createClient({
+  baseURL: 'https://api.example.com',
+});
+```
+
+</Step>
+
+<Step title="Use with $fetch">
+
+```vue
+<script setup>
+import { client } from '~/lib/api-client';
+
+const { data, error } = await client.get({
+  url: '/users',
+  composable: '$fetch',
+});
+</script>
+
+<template>
+  <div>
+    <div v-if="error">Error: {{ error }}</div>
+    <div v-else>
+      <div v-for="user in data" :key="user.id">
+        {{ user.name }}
+      </div>
+    </div>
+  </div>
+</template>
+```
+
+</Step>
+
+<Step title="Use with useFetch">
+
+```vue
+<script setup>
+import { client } from '~/lib/api-client';
+
+const { data, error, pending, refresh } = await client.get({
+  url: '/users',
+  composable: 'useFetch',
+});
+</script>
+
+<template>
+  <div>
+    <div v-if="pending">Loading...</div>
+    <div v-else-if="error">Error: {{ error }}</div>
+    <div v-else>
+      <div v-for="user in data" :key="user.id">
+        {{ user.name }}
+      </div>
+      <button @click="refresh()">Refresh</button>
+    </div>
+  </div>
+</template>
+```
+
+</Step>
+
+</Steps>
+
+## Configuration
+
+The Nuxt client extends Nuxt's fetch configuration:
+
+### Client Options
+
+```typescript
+import { createClient } from '@hey-api/client-nuxt';
+
+const client = createClient({
+  // Base URL for all requests
+  baseURL: 'https://api.example.com',
+
+  // Default headers
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key',
+  },
+
+  // Query parameters (can be refs)
+  query: {
+    version: 'v1',
+  },
+
+  // Authentication
+  auth: async (auth) => getToken(),
+
+  // Body serialization
+  bodySerializer: (body) => JSON.stringify(body),
+
+  // Query serialization
+  querySerializer: {
+    array: { style: 'form', explode: true },
+    object: { style: 'deepObject', explode: true },
+  },
+
+  // Request validator
+  requestValidator: async (data) => validateRequest(data),
+
+  // Response transformer
+  responseTransformer: async (data) => transformResponse(data),
+
+  // Response validator
+  responseValidator: async (data) => validateResponse(data),
+
+  // Standard fetch options
+  credentials: 'include',
+  mode: 'cors',
+  cache: 'default',
+
+  // Nuxt-specific options
+  retry: 1,
+  retryDelay: 500,
+  retryStatusCodes: [408, 409, 425, 429, 500, 502, 503, 504],
+  timeout: 10000,
+});
+```
+
+## Composables
+
+The Nuxt client supports all Nuxt composables:
+
+### $fetch
+
+Direct fetch without reactivity:
+
+```typescript
+const data = await client.get({
+  url: '/users',
+  composable: '$fetch',
+});
+
+console.log(data);
+```
+
+### useFetch
+
+Reactive data fetching with SSR support:
+
+```vue
+<script setup>
+const { data, pending, error, refresh } = await client.get({
+  url: '/users/{id}',
+  path: { id: route.params.id },
+  composable: 'useFetch',
+});
+</script>
+```
+
+### useAsyncData
+
+Custom async data handling:
+
+```vue
+<script setup>
+const { data, pending, error, refresh } = await client.get({
+  url: '/users',
+  composable: 'useAsyncData',
+  key: 'users-list',
+  asyncDataOptions: {
+    server: true,
+    lazy: false,
+    default: () => [],
+  },
+});
+</script>
+```
+
+### useLazyFetch
+
+Lazy loading with useFetch:
+
+```vue
+<script setup>
+const { data, pending, error } = await client.get({
+  url: '/users',
+  composable: 'useLazyFetch',
+});
+</script>
+
+<template>
+  <div>
+    <div v-if="pending">Loading...</div>
+    <div v-else-if="data">
+      <!-- Render data -->
+    </div>
+  </div>
+</template>
+```
+
+### useLazyAsyncData
+
+Lazy loading with useAsyncData:
+
+```vue
+<script setup>
+const { data, pending } = await client.get({
+  url: '/users',
+  composable: 'useLazyAsyncData',
+  key: 'users',
+});
+</script>
+```
+
+## HTTP Methods
+
+<Tabs>
+
+<Tab title="GET">
+
+```vue
+<script setup>
+const { data, error } = await client.get({
+  url: '/users',
+  query: {
+    page: 1,
+    limit: 10,
+  },
+  composable: 'useFetch',
+});
+</script>
+```
+
+</Tab>
+
+<Tab title="POST">
+
+```vue
+<script setup>
+const createUser = async (userData) => {
+  const { data, error } = await client.post({
+    url: '/users',
+    body: userData,
+    composable: '$fetch',
+  });
+  
+  if (!error) {
+    console.log('Created user:', data);
+  }
+};
+</script>
+```
+
+</Tab>
+
+<Tab title="PUT">
+
+```vue
+<script setup>
+const updateUser = async (id, updates) => {
+  const { data } = await client.put({
+    url: '/users/{id}',
+    path: { id },
+    body: updates,
+    composable: '$fetch',
+  });
+  return data;
+};
+</script>
+```
+
+</Tab>
+
+<Tab title="DELETE">
+
+```vue
+<script setup>
+const deleteUser = async (id) => {
+  await client.delete({
+    url: '/users/{id}',
+    path: { id },
+    composable: '$fetch',
+  });
+};
+</script>
+```
+
+</Tab>
+
+</Tabs>
+
+## Reactive Parameters
+
+Use Vue refs for reactive query parameters:
+
+```vue
+<script setup>
+import { ref } from 'vue';
+
+const page = ref(1);
+const limit = ref(10);
+
+const { data, refresh } = await client.get({
+  url: '/users',
+  query: {
+    page,
+    limit,
+  },
+  composable: 'useFetch',
+});
+
+// When page changes, the request automatically updates
+function nextPage() {
+  page.value++;
+}
+</script>
+
+<template>
+  <div>
+    <UsersList :users="data" />
+    <button @click="nextPage">Next Page</button>
+  </div>
+</template>
+```
+
+## Authentication
+
+### Cookie-Based Authentication
+
+```typescript
+import { useCookie } from '#app';
+
+const client = createClient({
+  baseURL: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'bearer') {
+      const token = useCookie('access_token');
+      return token.value;
+    }
+  },
+});
+```
+
+### Token from Composable
+
+```vue
+<script setup>
+import { useAuth } from '~/composables/useAuth';
+
+const { token } = useAuth();
+
+const { data } = await client.get({
+  url: '/protected',
+  headers: {
+    Authorization: `Bearer ${token.value}`,
+  },
+  composable: 'useFetch',
+});
+</script>
+```
+
+### Per-Request Security
+
+```typescript
+const { data } = await client.get({
+  url: '/protected',
+  security: [
+    {
+      type: 'apiKey',
+      in: 'header',
+      name: 'X-API-Key',
+    },
+  ],
+  composable: 'useFetch',
+});
+```
+
+## Server-Sent Events
+
+Stream real-time data:
+
+```vue
+<script setup>
+import { ref, onUnmounted } from 'vue';
+
+const events = ref([]);
+let stream;
+
+onMounted(async () => {
+  stream = await client.sse.get({
+    url: '/events',
+    onSseEvent: (event) => {
+      events.value.push(event.data);
+    },
+    onSseError: (error) => {
+      console.error('Stream error:', error);
+    },
+  });
+});
+
+onUnmounted(() => {
+  stream?.close();
+});
+</script>
+
+<template>
+  <div>
+    <div v-for="(event, i) in events" :key="i">
+      {{ event }}
+    </div>
+  </div>
+</template>
+```
+
+## Caching and Refresh
+
+### Manual Refresh
+
+```vue
+<script setup>
+const { data, refresh } = await client.get({
+  url: '/users',
+  composable: 'useFetch',
+});
+
+const refreshUsers = () => refresh();
+</script>
+
+<template>
+  <div>
+    <UsersList :users="data" />
+    <button @click="refreshUsers">Refresh</button>
+  </div>
+</template>
+```
+
+### Auto Refresh
+
+```vue
+<script setup>
+const { data } = await client.get({
+  url: '/stats',
+  composable: 'useFetch',
+  asyncDataOptions: {
+    watch: [route.params.id],
+  },
+});
+</script>
+```
+
+### Cache Keys
+
+```vue
+<script setup>
+const userId = route.params.id;
+
+const { data } = await client.get({
+  url: '/users/{id}',
+  path: { id: userId },
+  composable: 'useFetch',
+  key: `user-${userId}`,
+});
+</script>
+```
+
+## SSR Support
+
+### Server-Side Rendering
+
+```vue
+<script setup>
+// This will run on the server during SSR
+const { data } = await client.get({
+  url: '/users',
+  composable: 'useFetch',
+  asyncDataOptions: {
+    server: true, // Default
+  },
+});
+</script>
+```
+
+### Client-Only Fetching
+
+```vue
+<script setup>
+const { data } = await client.get({
+  url: '/users',
+  composable: 'useFetch',
+  asyncDataOptions: {
+    server: false, // Skip SSR
+  },
+});
+</script>
+```
+
+## Error Handling
+
+```vue
+<script setup>
+const { data, error, status } = await client.get({
+  url: '/users',
+  composable: 'useFetch',
+});
+
+const errorMessage = computed(() => {
+  if (error.value) {
+    return `Error ${status.value}: ${error.value.message}`;
+  }
+  return null;
+});
+</script>
+
+<template>
+  <div>
+    <div v-if="errorMessage" class="error">
+      {{ errorMessage }}
+    </div>
+    <div v-else>
+      <!-- Render data -->
+    </div>
+  </div>
+</template>
+```
+
+## Advanced Examples
+
+### Parallel Requests
+
+```vue
+<script setup>
+const [usersResult, postsResult] = await Promise.all([
+  client.get({ url: '/users', composable: 'useFetch' }),
+  client.get({ url: '/posts', composable: 'useFetch' }),
+]);
+
+const users = usersResult.data;
+const posts = postsResult.data;
+</script>
+```
+
+### Dependent Requests
+
+```vue
+<script setup>
+const { data: user } = await client.get({
+  url: '/users/{id}',
+  path: { id: route.params.id },
+  composable: 'useFetch',
+});
+
+const { data: posts } = await client.get({
+  url: '/users/{id}/posts',
+  path: { id: user.value.id },
+  composable: 'useFetch',
+  asyncDataOptions: {
+    immediate: false,
+  },
+});
+
+watch(user, (newUser) => {
+  if (newUser) {
+    posts.refresh();
+  }
+});
+</script>
+```
+
+### Optimistic Updates
+
+```vue
+<script setup>
+const { data: users, refresh } = await client.get({
+  url: '/users',
+  composable: 'useFetch',
+});
+
+const createUser = async (newUser) => {
+  // Optimistic update
+  users.value = [...users.value, { ...newUser, id: Date.now() }];
+
+  try {
+    const { data } = await client.post({
+      url: '/users',
+      body: newUser,
+      composable: '$fetch',
+    });
+    
+    // Refresh to get actual data
+    await refresh();
+  } catch (error) {
+    // Revert on error
+    await refresh();
+  }
+};
+</script>
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  Client,
+  Config,
+  RequestOptions,
+  RequestResult,
+  Composable,
+} from '@hey-api/client-nuxt';
+
+// Type-safe client wrapper
+function createApiClient(config: Config): Client {
+  return createClient({
+    ...config,
+    baseURL: useRuntimeConfig().public.apiUrl,
+  });
+}
+
+// Typed composable
+type UsersResponse = RequestResult<'useFetch', User[], Error>;
+
+const users: UsersResponse = await client.get({
+  url: '/users',
+  composable: 'useFetch',
+});
+```
+
+## Best Practices
+
+<AccordionGroup>
+
+<Accordion title="Use appropriate composables">
+  Choose the right composable for your use case:
+  - `$fetch` for one-off requests
+  - `useFetch` for reactive SSR data
+  - `useAsyncData` for custom async logic
+  - `useLazyFetch` for deferred loading
+</Accordion>
+
+<Accordion title="Leverage reactive parameters">
+  Use refs for parameters that should trigger re-fetching:
+
+  ```vue
+  <script setup>
+  const search = ref('');
+
+  const { data } = await client.get({
+    url: '/users',
+    query: { search }, // Reactive!
+    composable: 'useFetch',
+  });
+  </script>
+  ```
+</Accordion>
+
+<Accordion title="Set proper cache keys">
+  Use unique keys for caching:
+
+  ```vue
+  <script setup>
+  const { data } = await client.get({
+    url: '/users/{id}',
+    path: { id },
+    key: `user-${id}`,
+    composable: 'useFetch',
+  });
+  </script>
+  ```
+</Accordion>
+
+<Accordion title="Handle loading states">
+  Always show loading indicators:
+
+  ```vue
+  <template>
+    <div v-if="pending">Loading...</div>
+    <div v-else-if="error">Error: {{ error }}</div>
+    <div v-else>
+      <!-- Data -->
+    </div>
+  </template>
+  ```
+</Accordion>
+
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Fetch Client" icon="globe" href="/clients/fetch">
+  Learn about the underlying Fetch client
+</Card>
+
+<Card title="Composables" icon="vue" href="/clients/nuxt#composables">
+  Explore Nuxt composables
+</Card>
+
+<Card title="SSR Support" icon="server" href="/clients/nuxt#ssr-support">
+  Configure server-side rendering
+</Card>
+
+<Card title="Authentication" icon="lock" href="/clients/nuxt#authentication">
+  Set up API authentication
+</Card>
+
+</CardGroup>

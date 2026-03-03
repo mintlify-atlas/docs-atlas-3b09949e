@@ -1,0 +1,258 @@
+---
+title: State Management Overview
+description: Generate type-safe hooks and composables for data fetching and mutations with TanStack Query and Pinia Colada.
+---
+
+OpenAPI TypeScript can generate type-safe hooks, composables, and query helpers that integrate with popular data fetching libraries. This eliminates manual setup and ensures your API calls stay in sync with your OpenAPI specification.
+
+## Supported Libraries
+
+OpenAPI TypeScript supports multiple state management and data fetching libraries across different frameworks:
+
+<CardGroup cols={2}>
+  <Card title="TanStack Query" icon="react" href="/state-management/tanstack-query">
+    React, Vue, Svelte, Solid, and Angular support for queries, mutations, and infinite queries.
+  </Card>
+  <Card title="Pinia Colada" icon="code" href="/state-management/pinia-colada">
+    Vue composables for queries and mutations with type-safe query keys.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+State management plugins analyze your OpenAPI specification and generate:
+
+1. **Query Options** - Pre-configured options for fetching data
+2. **Mutation Options** - Type-safe mutation functions for POST/PUT/DELETE operations
+3. **Query Keys** - Deterministic cache keys based on operation parameters
+4. **Hooks/Composables** - Framework-specific functions (optional)
+
+## Generated Artifacts
+
+### Query Options
+
+For GET operations, plugins generate query options that include:
+
+- Query function with proper typing
+- Query key generation
+- Error handling
+- Response type inference
+
+```typescript
+// Generated query options
+export const getPetByIdOptions = (options: Options<GetPetByIdData>) =>
+  queryOptions({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await client.getPetById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getPetByIdQueryKey(options),
+  });
+```
+
+### Mutation Options
+
+For POST/PUT/DELETE operations, plugins generate mutation options:
+
+```typescript
+// Generated mutation options
+export const addPetMutation = (
+  options?: Partial<Options<AddPetData>>
+) => ({
+  mutationFn: async (fnOptions) => {
+    const { data } = await client.addPet({
+      ...options,
+      ...fnOptions,
+      throwOnError: true,
+    });
+    return data;
+  },
+});
+```
+
+### Query Keys
+
+Deterministic cache keys are generated for each operation:
+
+```typescript
+// Generated query key function
+export const getPetByIdQueryKey = (options: Options<GetPetByIdData>) =>
+  createQueryKey('getPetById', options);
+```
+
+## Configuration Options
+
+All state management plugins share common configuration patterns:
+
+### Naming Conventions
+
+Customize how generated functions are named:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      // Default: '{{name}}Options'
+      queryOptions: '{{name}}QueryOptions',
+      // Default: '{{name}}Mutation'
+      mutationOptions: '{{name}}MutationOptions',
+      // Default: '{{name}}QueryKey'
+      queryKeys: '{{name}}Key',
+    },
+  ],
+});
+```
+
+### Feature Toggles
+
+Enable or disable specific features:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      // Disable query keys generation
+      queryKeys: false,
+      // Enable useQuery hooks
+      useQuery: true,
+      // Disable infinite queries
+      infiniteQueryOptions: false,
+    },
+  ],
+});
+```
+
+### Query Key Tags
+
+Include operation tags in query keys for better cache invalidation:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      queryKeys: {
+        tags: true, // Include operation tags
+      },
+    },
+  ],
+});
+```
+
+### Custom Metadata
+
+Add custom metadata to generated options:
+
+```typescript
+export default defineConfig({
+  plugins: [
+    {
+      name: '@tanstack/react-query',
+      queryOptions: {
+        meta: (operation) => ({
+          operationId: operation.id,
+          deprecated: operation.deprecated,
+          tags: operation.tags,
+        }),
+      },
+    },
+  ],
+});
+```
+
+## Usage Patterns
+
+### Basic Query
+
+<CodeGroup>
+```tsx React
+import { useQuery } from '@tanstack/react-query';
+import { getPetByIdOptions } from './client/@tanstack/react-query.gen';
+
+function PetDetails({ petId }: { petId: number }) {
+  const { data, error, isLoading } = useQuery(
+    getPetByIdOptions({
+      path: { petId },
+    })
+  );
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  return <div>{data.name}</div>;
+}
+```
+
+```vue Vue (Pinia Colada)
+<script setup lang="ts">
+import { useQuery } from '@pinia/colada';
+import { getPetByIdQuery } from './client/@pinia/colada.gen';
+
+const petId = ref(1);
+const { data, error, isLoading } = useQuery(
+  getPetByIdQuery({
+    path: { petId: petId.value },
+  })
+);
+</script>
+```
+</CodeGroup>
+
+### Mutations
+
+<CodeGroup>
+```tsx React
+import { useMutation } from '@tanstack/react-query';
+import { addPetMutation } from './client/@tanstack/react-query.gen';
+
+function AddPetForm() {
+  const mutation = useMutation(addPetMutation());
+
+  const handleSubmit = (formData: FormData) => {
+    mutation.mutate({
+      body: {
+        name: formData.get('name') as string,
+        status: 'available',
+      },
+    });
+  };
+
+  return <form onSubmit={handleSubmit}>{/* form fields */}</form>;
+}
+```
+
+```vue Vue (Pinia Colada)
+<script setup lang="ts">
+import { useMutation } from '@pinia/colada';
+import { addPetMutation } from './client/@pinia/colada.gen';
+
+const { mutateAsync } = useMutation(addPetMutation());
+
+const handleSubmit = async () => {
+  await mutateAsync({
+    body: {
+      name: 'Fluffy',
+      status: 'available',
+    },
+  });
+};
+</script>
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="TanStack Query" icon="react" href="/state-management/tanstack-query">
+    Learn about React, Vue, Svelte, Solid, and Angular integration.
+  </Card>
+  <Card title="Pinia Colada" icon="code" href="/state-management/pinia-colada">
+    Explore Vue-specific composables and query management.
+  </Card>
+</CardGroup>

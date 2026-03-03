@@ -1,0 +1,378 @@
+---
+title: Custom Plugins
+description: Learn how to build custom plugins for OpenAPI TypeScript to extend code generation capabilities
+---
+
+# Custom Plugins
+
+OpenAPI TypeScript's plugin system allows you to extend code generation with custom functionality. You can create plugins that generate validators, transformers, SDK helpers, or any custom output from your OpenAPI specifications.
+
+## Understanding the Plugin System
+
+Plugins in OpenAPI TypeScript are self-contained modules that process the OpenAPI specification and generate code. The plugin system provides:
+
+- **Type-safe configuration** with TypeScript
+- **Access to the parsed OpenAPI spec** through the intermediate representation (IR)
+- **Code generation utilities** via the TypeScript DSL
+- **Hook system** for controlling which resources are processed
+- **Dependency management** between plugins
+
+## Plugin Architecture
+
+A plugin consists of three main components:
+
+1. **Configuration Types** - Define user-facing and resolved configuration
+2. **Plugin Definition** - Export the plugin metadata and handler
+3. **Handler Function** - Process the specification and generate code
+
+### Basic Plugin Structure
+
+```typescript
+import {
+  type DefinePlugin,
+  definePluginConfig,
+  type Plugin,
+} from '@hey-api/openapi-ts';
+
+// 1. Define configuration types
+export type UserConfig = Plugin.Name<'my-plugin'> &
+  Plugin.Hooks &
+  Plugin.UserExports & {
+    // Your custom options
+    format?: 'json' | 'yaml';
+    enabled?: boolean;
+  };
+
+export type Config = Plugin.Name<'my-plugin'> & {
+  format: 'json' | 'yaml';
+  enabled: boolean;
+};
+
+// 2. Define the plugin type
+export type MyPlugin = DefinePlugin<UserConfig, Config>;
+
+// 3. Create the plugin configuration
+export const defaultConfig: MyPlugin['Config'] = {
+  config: {
+    enabled: true,
+    format: 'json',
+  },
+  handler: myPluginHandler,
+  name: 'my-plugin',
+  tags: ['validator'], // Optional: for plugin ordering
+};
+
+// 4. Export a helper for users
+export const myPlugin = definePluginConfig(defaultConfig);
+```
+
+## Implementing the Handler
+
+The handler function receives the plugin instance and processes the OpenAPI specification:
+
+```typescript
+import type { MyPlugin } from './types';
+
+export const myPluginHandler: MyPlugin['Handler'] = ({ plugin }) => {
+  // Access configuration
+  const { format, enabled } = plugin.config;
+  
+  if (!enabled) {
+    return;
+  }
+
+  // Register external dependencies
+  plugin.symbol('myLibrary', {
+    external: 'my-library',
+    importKind: 'namespace',
+    meta: {
+      category: 'external',
+      resource: 'my-library',
+    },
+  });
+
+  // Process OpenAPI resources
+  plugin.forEach('operation', 'schema', (event) => {
+    switch (event.type) {
+      case 'operation':
+        handleOperation(event, plugin);
+        break;
+      case 'schema':
+        handleSchema(event, plugin);
+        break;
+    }
+  });
+};
+```
+
+## Processing OpenAPI Resources
+
+The `plugin.forEach()` method iterates over different OpenAPI resources:
+
+<CodeGroup>
+
+```typescript Operations
+function handleOperation(event: OperationEvent, plugin: PluginInstance) {
+  const { operation, _path, tags } = event;
+  
+  // Generate code for this operation
+  const file = plugin.file();
+  const func = file.addFunction({
+    name: operation.id || 'operation',
+    export: true,
+  });
+  
+  // Add implementation
+  func.addStatement('// Custom operation handler');
+}
+```
+
+```typescript Schemas
+function handleSchema(event: SchemaEvent, plugin: PluginInstance) {
+  const { schema, _path, tags } = event;
+  
+  // Generate validators for schemas
+  if (schema.type === 'object') {
+    const file = plugin.file();
+    const validator = file.addConstant({
+      name: `validate${schema.title}`,
+      export: true,
+    });
+    
+    // Add validation logic
+  }
+}
+```
+
+```typescript Parameters
+function handleParameter(event: ParameterEvent, plugin: PluginInstance) {
+  const { parameter, _path, tags } = event;
+  
+  // Process parameter schema
+  if (parameter.schema) {
+    // Generate parameter validators
+  }
+}
+```
+
+```typescript Webhooks
+function handleWebhook(event: WebhookEvent, plugin: PluginInstance) {
+  const { operation, _path, tags } = event;
+  
+  // Generate webhook handlers
+}
+```
+
+</CodeGroup>
+
+## Real-World Example: Custom Client Plugin
+
+Here's a complete example based on the test suite showing how to create a custom HTTP client plugin:
+
+```typescript client/plugin.ts
+import {
+  type Client,
+  clientDefaultConfig,
+  clientDefaultMeta,
+  clientPluginHandler,
+  type DefinePlugin,
+  definePluginConfig,
+} from '@hey-api/openapi-ts';
+
+export type Config = Client.Config & {
+  /**
+   * Plugin name. Must be unique.
+   */
+  name: string;
+};
+
+export type MyClientPlugin = DefinePlugin<Config, Config>;
+
+export const defaultConfig: MyClientPlugin['Config'] = {
+  ...clientDefaultMeta,
+  config: clientDefaultConfig,
+  handler: clientPluginHandler as MyClientPlugin['Handler'],
+  name: __filename,
+};
+
+/**
+ * Type helper for `my-client` plugin, returns {@link Plugin.Config} object
+ */
+export const myClientPlugin = definePluginConfig(defaultConfig);
+```
+
+### Using Your Custom Plugin
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+import { myClientPlugin } from './client/plugin';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.json',
+  output: 'src/client',
+  plugins: [
+    '@hey-api/typescript',
+    myClientPlugin({
+      baseUrl: 'https://api.example.com',
+      bundle: true,
+    }),
+  ],
+});
+```
+
+## Advanced Features
+
+### Using Hooks
+
+Hooks allow you to control which resources are processed:
+
+```typescript
+export const myPlugin = definePluginConfig(defaultConfig)({
+  '~hooks': {
+    // Control operation processing
+    shouldProcessOperation: (operation, path) => {
+      // Only process operations with specific tags
+      return operation.tags?.includes('public');
+    },
+    
+    // Control schema processing
+    shouldProcessSchema: (schema, path) => {
+      // Skip internal schemas
+      return !path.includes('internal');
+    },
+  },
+});
+```
+
+### Plugin Dependencies
+
+Declare dependencies on other plugins:
+
+```typescript
+export const defaultConfig: MyPlugin['Config'] = {
+  config: { /* ... */ },
+  dependencies: ['@hey-api/typescript', '@hey-api/sdk'],
+  handler: myPluginHandler,
+  name: 'my-plugin',
+};
+```
+
+### Plugin Tags
+
+Use tags to influence plugin ordering and resolution:
+
+```typescript
+export const defaultConfig: MyPlugin['Config'] = {
+  config: { /* ... */ },
+  handler: myPluginHandler,
+  name: 'my-plugin',
+  tags: ['validator', 'transformer'],
+};
+```
+
+Available tags:
+- `client` - HTTP client plugins
+- `mocker` - Mock data generation
+- `sdk` - SDK generation
+- `transformer` - Data transformation
+- `validator` - Schema validation
+
+### Custom Resolvers
+
+Resolvers control how specific schema constructs are processed:
+
+```typescript
+export type UserConfig = Plugin.Name<'my-plugin'> &
+  Plugin.Resolvers<{
+    // Define custom resolvers
+    customType?: (schema: SchemaObject) => AstNode;
+  }> & {
+    // Other config
+  };
+
+// Use in handler
+const customResolver = plugin.config['~resolvers']?.customType;
+if (customResolver) {
+  const ast = customResolver(schema);
+  // Use the resolved AST
+}
+```
+
+## File Organization
+
+A complete plugin typically has this structure:
+
+```
+my-plugin/
+├── plugin.ts          # Main plugin definition
+├── types.ts           # Type definitions
+├── config.ts          # Default configuration
+├── handler.ts         # Handler implementation
+└── utils/
+    ├── processor.ts   # Processing logic
+    └── walker.ts      # Schema walking utilities
+```
+
+## Best Practices
+
+<Steps>
+
+### Use TypeScript for Type Safety
+
+Leverage the `DefinePlugin` type helper to ensure your plugin configuration is type-safe.
+
+### Follow Naming Conventions
+
+- Plugin names should be scoped: `@org/plugin-name` or use descriptive names
+- Use camelCase for configuration options
+- Follow the pattern `z{{name}}` for validators, `{{name}}Schema` for schemas
+
+### Handle Errors Gracefully
+
+Validate configuration and provide helpful error messages:
+
+```typescript
+if (!plugin.config.requiredOption) {
+  throw new Error('my-plugin: requiredOption is required');
+}
+```
+
+### Document Your Plugin
+
+Provide clear documentation for:
+- Configuration options
+- Generated output structure
+- Usage examples
+- Dependencies and peer dependencies
+
+### Test Your Plugin
+
+Create tests using the OpenAPI TypeScript test utilities:
+
+```typescript
+import { createClient } from '@hey-api/openapi-ts';
+import { myPlugin } from './plugin';
+
+test('generates expected output', async () => {
+  await createClient({
+    input: 'test/fixtures/spec.json',
+    output: 'test/output',
+    plugins: [myPlugin()],
+  });
+  
+  // Assert generated files
+});
+```
+
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Programmatic Usage" icon="code" href="/advanced/programmatic-usage">
+    Learn how to use the `createClient` API programmatically
+  </Card>
+  <Card title="Watch Mode" icon="eye" href="/advanced/watch-mode">
+    Configure watch mode for automatic regeneration
+  </Card>
+</CardGroup>

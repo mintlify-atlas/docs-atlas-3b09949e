@@ -1,0 +1,485 @@
+---
+title: 'Angular'
+description: 'Generate type-safe HTTP requests and resources for Angular applications'
+icon: 'angular'
+---
+
+The `@angular/common` plugin generates type-safe HTTP client code for Angular applications, supporting both the traditional `HttpRequest` pattern and the new `httpResource` API introduced in Angular 18.
+
+## Installation
+
+Install the required dependencies:
+
+```bash
+npm install @hey-api/openapi-ts @hey-api/client-angular
+```
+
+## Configuration
+
+Add the `@angular/common` plugin to your OpenAPI TypeScript configuration:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'https://api.example.com/openapi.yaml',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/client-angular',
+    {
+      name: '@angular/common',
+      httpRequests: true,
+      httpResources: 'byTags',
+    },
+    '@hey-api/sdk',
+    '@hey-api/typescript',
+  ],
+});
+```
+
+<Note>
+The `@angular/common` plugin requires `@hey-api/client-angular` and `@hey-api/sdk` plugins as dependencies.
+</Note>
+
+## Features
+
+### HTTP Requests
+
+Generates functions that return `HttpRequest<T>` instances, compatible with Angular's HTTP client:
+
+```typescript
+import { addPetRequest } from './client';
+import { inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+
+const http = inject(HttpClient);
+
+// Create a typed HttpRequest
+const request = addPetRequest({
+  body: {
+    name: 'Fluffy',
+    status: 'available',
+  },
+});
+
+// Execute with HttpClient
+http.request(request).subscribe(response => {
+  console.log(response); // Fully typed!
+});
+```
+
+### HTTP Resources
+
+Generates resource APIs using Angular 18's new `httpResource` for reactive data fetching:
+
+```typescript
+import { PetServiceResources } from './client';
+import { Component, inject } from '@angular/core';
+
+@Component({
+  selector: 'app-pets',
+  template: `
+    <div>
+      @if (pets.isLoading()) {
+        <p>Loading...</p>
+      }
+      @if (pets.value(); as data) {
+        @for (pet of data; track pet.id) {
+          <div>{{ pet.name }}</div>
+        }
+      }
+    </div>
+  `,
+})
+export class PetsComponent {
+  private petService = inject(PetServiceResources);
+  
+  pets = this.petService.findPetsByStatus(() => ({
+    query: { status: 'available' },
+  }));
+}
+```
+
+<Note>
+`httpResource` requires Angular 18+ and provides automatic reactivity, caching, and loading states.
+</Note>
+
+## Configuration Options
+
+The `@angular/common` plugin accepts the following options:
+
+<ResponseField name="httpRequests" type="boolean | 'flat' | 'byTags' | 'single' | object" default="'flat'">
+  Generate HTTP Request functions. Set to `false` to disable, or use a strategy:
+  - `'flat'` - Individual functions
+  - `'byTags'` - Group by OpenAPI tags into classes
+  - `'single'` - All operations in one class
+  - `true` - Equivalent to `'flat'`
+  - Object with detailed configuration
+</ResponseField>
+
+<ResponseField name="httpResources" type="boolean | 'flat' | 'byTags' | 'single' | object" default="'flat'">
+  Generate HTTP Resource methods. Same strategy options as `httpRequests`.
+</ResponseField>
+
+<ResponseField name="includeInEntry" type="boolean" default={false}>
+  Export generated code from the main index file.
+</ResponseField>
+
+<ResponseField name="comments" type="boolean" default={true}>
+  Include JSDoc comments from OpenAPI descriptions.
+</ResponseField>
+
+### Advanced HTTP Requests Configuration
+
+```typescript
+{
+  name: '@angular/common',
+  httpRequests: {
+    enabled: true,
+    strategy: 'byTags',
+    container: 'class',
+    containerName: '{{name}}Service',
+    methodName: { case: 'camelCase' },
+    nesting: 'operationId',
+    nestingDelimiters: /[./]/,
+    methods: 'instance',
+  },
+}
+```
+
+<ResponseField name="strategy" type="'flat' | 'byTags' | 'single'" default="'flat'">
+  How to group operations:
+  - `'flat'` - Standalone functions
+  - `'byTags'` - One class per OpenAPI tag
+  - `'single'` - All operations in one class
+</ResponseField>
+
+<ResponseField name="container" type="'class'" default="'class'">
+  Container type for grouped operations. Currently only `'class'` is supported.
+</ResponseField>
+
+<ResponseField name="containerName" type="string | object">
+  Customize class names. Use `{{name}}` as a placeholder for tag names.
+  
+  Examples:
+  - `'{{name}}Service'` - Appends "Service" to tag name
+  - `{ name: '{{name}}Api', case: 'PascalCase' }` - With custom casing
+</ResponseField>
+
+<ResponseField name="methodName" type="string | object">
+  Customize method/function names.
+  
+  Examples:
+  - `{ case: 'camelCase' }` - Force camelCase
+  - `'{{name}}Request'` - Append suffix to method names
+</ResponseField>
+
+<ResponseField name="nesting" type="'operationId' | 'id' | function" default="'operationId'">
+  How to derive nesting structure:
+  - `'operationId'` - Split operationId by delimiters (e.g., `users.list` → `Users.list()`)
+  - `'id'` - Use operation ID as-is, no nesting
+</ResponseField>
+
+<ResponseField name="nestingDelimiters" type="RegExp" default="/[.\u002F]/">
+  Regular expression for splitting operationId when `nesting` is `'operationId'`.
+</ResponseField>
+
+<ResponseField name="methods" type="'instance'" default="'instance'">
+  How methods are attached to classes. Currently only `'instance'` is supported (requires `new ClassName()`).
+</ResponseField>
+
+<ResponseField name="strategyDefaultTag" type="string" default="'default'">
+  Container name for operations without tags when using `strategy: 'byTags'`.
+</ResponseField>
+
+### Advanced HTTP Resources Configuration
+
+Accepts the same configuration options as HTTP Requests:
+
+```typescript
+{
+  name: '@angular/common',
+  httpResources: {
+    enabled: true,
+    strategy: 'byTags',
+    containerName: '{{name}}ServiceResources',
+    methodName: { case: 'camelCase' },
+  },
+}
+```
+
+## Usage Patterns
+
+### Flat Strategy (Standalone Functions)
+
+```typescript openapi-ts.config.ts
+{
+  name: '@angular/common',
+  httpRequests: 'flat',
+}
+```
+
+Generates individual functions:
+
+```typescript
+import { getUserRequest, createUserRequest } from './client';
+
+const getReq = getUserRequest({ path: { id: '123' } });
+const createReq = createUserRequest({ body: { name: 'Alice' } });
+```
+
+### By Tags Strategy (Service Classes)
+
+```typescript openapi-ts.config.ts
+{
+  name: '@angular/common',
+  httpResources: {
+    strategy: 'byTags',
+    containerName: '{{name}}Service',
+  },
+}
+```
+
+Generates classes grouped by OpenAPI tags:
+
+```typescript
+import { UserService, PetService } from './client';
+import { inject } from '@angular/core';
+
+@Component({ /* ... */ })
+export class MyComponent {
+  private userService = inject(UserService);
+  private petService = inject(PetService);
+  
+  users = this.userService.listUsers(() => undefined);
+  pets = this.petService.findPets(() => ({ query: { limit: 10 } }));
+}
+```
+
+### Single Strategy (One Service Class)
+
+```typescript openapi-ts.config.ts
+{
+  name: '@angular/common',
+  httpRequests: {
+    strategy: 'single',
+    containerName: 'ApiClient',
+  },
+}
+```
+
+Generates one class containing all operations:
+
+```typescript
+import { ApiClient } from './client';
+import { inject } from '@angular/core';
+
+const api = inject(ApiClient);
+const request = api.getUser({ path: { id: '123' } });
+```
+
+## Examples
+
+### Complete Component Example
+
+```typescript app.component.ts
+import { Component, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { PetServiceResources } from './client';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  template: `
+    <div>
+      <h1>Available Pets</h1>
+      
+      @if (pets.isLoading()) {
+        <div class="spinner">Loading...</div>
+      }
+      
+      @if (pets.error(); as error) {
+        <div class="error">Error: {{ error.message }}</div>
+      }
+      
+      @if (pets.value(); as data) {
+        <div class="pet-list">
+          @for (pet of data; track pet.id) {
+            <div class="pet-card">
+              <h3>{{ pet.name }}</h3>
+              <p>Status: {{ pet.status }}</p>
+            </div>
+          }
+        </div>
+      }
+      
+      <button (click)="refresh()">Refresh</button>
+    </div>
+  `,
+})
+export class AppComponent {
+  private petService = inject(PetServiceResources);
+  
+  // Reactive resource with automatic loading states
+  pets = this.petService.findPetsByStatus(() => ({
+    query: { status: 'available' },
+  }));
+  
+  refresh() {
+    this.pets.reload();
+  }
+}
+```
+
+### Using HTTP Requests with HttpClient
+
+```typescript pet.service.ts
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { addPetRequest, updatePetRequest } from './client';
+import type { Pet, AddPetData } from './client';
+
+@Injectable({ providedIn: 'root' })
+export class PetService {
+  private http = inject(HttpClient);
+  
+  addPet(data: AddPetData['body']): Observable<Pet> {
+    const request = addPetRequest({ body: data });
+    return this.http.request(request);
+  }
+  
+  updatePet(id: number, data: Partial<Pet>): Observable<Pet> {
+    const request = updatePetRequest({
+      path: { petId: id },
+      body: data,
+    });
+    return this.http.request(request);
+  }
+}
+```
+
+## Generated Code Structure
+
+The plugin generates code in the `@angular` subdirectory:
+
+```
+src/client/
+├── @angular/
+│   └── common.gen.ts    # HTTP requests and resources
+├── index.ts             # Main entry (if includeInEntry: true)
+├── types.gen.ts         # TypeScript types
+└── sdk.gen.ts           # SDK functions
+```
+
+### Example Generated Code
+
+<CodeGroup>
+
+```typescript HTTP Request Function
+export const addPetRequest = <ThrowOnError extends boolean = false>(
+  options: Options<AddPetData, ThrowOnError>,
+): HttpRequest<AddPetResponse> =>
+  (options?.client ?? client).requestOptions<AddPetResponse, ThrowOnError>({
+    method: 'POST',
+    url: '/pet',
+    ...options,
+  });
+```
+
+```typescript HTTP Resource Class
+@Injectable({ providedIn: 'root' })
+export class PetServiceResources {
+  /**
+   * Add a new pet to the store.
+   */
+  public addPet<ThrowOnError extends boolean = false>(
+    options: () => Options<AddPetData, ThrowOnError> | undefined,
+  ) {
+    return httpResource<AddPetResponse>(() => {
+      const opts = options ? options() : undefined;
+      return opts ? addPetRequest(opts) : undefined;
+    });
+  }
+}
+```
+
+</CodeGroup>
+
+## Dependencies
+
+The `@angular/common` plugin automatically declares these dependencies:
+
+- `@hey-api/client-angular` - Angular HTTP client adapter
+- `@hey-api/sdk` - Core SDK functionality
+
+These must be included in your plugin configuration:
+
+```typescript
+plugins: [
+  '@hey-api/client-angular',
+  '@angular/common',
+  '@hey-api/sdk',
+]
+```
+
+## Migration Guide
+
+### From HttpClient Direct Usage
+
+Before:
+```typescript
+this.http.post<Pet>('/pet', petData).subscribe(...);
+```
+
+After:
+```typescript
+const request = addPetRequest({ body: petData });
+this.http.request(request).subscribe(...); // Fully typed!
+```
+
+### To HTTP Resources
+
+Before (using HttpClient):
+```typescript
+pets$ = this.http.get<Pet[]>('/pets').pipe(
+  catchError(error => {
+    this.loading = false;
+    return throwError(error);
+  })
+);
+```
+
+After (using httpResource):
+```typescript
+pets = this.petService.findPets(() => undefined);
+// Automatic loading states, error handling, and reactivity!
+```
+
+## Best Practices
+
+<Steps>
+
+<Step title="Use HTTP Resources for reactive data">
+  Leverage Angular 18's `httpResource` for components that display server data. It provides automatic loading states and error handling.
+</Step>
+
+<Step title="Use HTTP Requests for imperative operations">
+  Use `HttpRequest` functions for actions triggered by user interactions (create, update, delete operations).
+</Step>
+
+<Step title="Organize by tags">
+  Use `strategy: 'byTags'` to generate service classes that align with your API structure and improve code organization.
+</Step>
+
+<Step title="Leverage dependency injection">
+  Generated resource classes are decorated with `@Injectable({ providedIn: 'root' })`, allowing direct injection into components.
+</Step>
+
+</Steps>
+
+<Note>
+For Angular versions before 18, use `httpRequests: true` and `httpResources: false` to generate only HTTP Request functions.
+</Note>

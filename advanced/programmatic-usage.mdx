@@ -1,0 +1,455 @@
+---
+title: Programmatic Usage
+description: Use OpenAPI TypeScript programmatically in Node.js applications and build tools
+---
+
+# Programmatic Usage
+
+While the CLI is the most common way to use OpenAPI TypeScript, you can also use it programmatically in Node.js applications, custom build scripts, or integration with other tools.
+
+## The `createClient` API
+
+The `createClient` function is the main programmatic interface. It accepts a configuration object (or array of configurations) and returns a Promise that resolves to an array of generation contexts.
+
+### Basic Usage
+
+```typescript
+import { createClient } from '@hey-api/openapi-ts';
+
+const context = await createClient({
+  input: 'https://api.example.com/openapi.json',
+  output: 'src/client',
+  plugins: [
+    '@hey-api/typescript',
+    '@hey-api/sdk',
+  ],
+});
+
+console.log('Generation complete!');
+```
+
+### Function Signature
+
+The `createClient` function is defined in `/home/daytona/workspace/source/packages/openapi-ts/src/generate.ts:32`:
+
+```typescript
+export async function createClient(
+  userConfig?: LazyOrAsync<MaybeArray<UserConfig>>,
+  logger?: Logger,
+): Promise<ReadonlyArray<Context>>
+```
+
+**Parameters:**
+- `userConfig` - Single config, array of configs, or lazy function returning config(s)
+- `logger` - Optional custom Logger instance for controlling output
+
+**Returns:**
+- Array of `Context` objects containing the generation results
+
+## Configuration Options
+
+The programmatic API accepts the same configuration as `openapi-ts.config.ts` files. Use the `defineConfig` helper for type safety:
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+const config = defineConfig({
+  input: {
+    path: 'https://api.example.com/openapi.json',
+    // Optional: Add fetch options for authentication
+    fetch: {
+      headers: {
+        'Authorization': `Bearer ${process.env.API_TOKEN}`,
+      },
+    },
+  },
+  output: {
+    path: 'src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/sdk',
+      asClass: true,
+    },
+  ],
+});
+
+await createClient(config);
+```
+
+## Multiple Configurations
+
+Generate multiple clients in a single call:
+
+```typescript
+import { createClient } from '@hey-api/openapi-ts';
+
+const contexts = await createClient([
+  {
+    input: 'specs/api-v1.json',
+    output: 'src/clients/v1',
+    plugins: ['@hey-api/typescript', '@hey-api/sdk'],
+  },
+  {
+    input: 'specs/api-v2.json',
+    output: 'src/clients/v2',
+    plugins: ['@hey-api/typescript', '@hey-api/sdk'],
+  },
+]);
+
+console.log(`Generated ${contexts.length} clients`);
+```
+
+## Lazy Configuration
+
+Use a function for dynamic configuration:
+
+```typescript
+import { createClient, defineConfig } from '@hey-api/openapi-ts';
+
+const contexts = await createClient(async () => {
+  const apiUrl = await fetchApiUrl();
+  const token = process.env.API_TOKEN;
+  
+  return defineConfig({
+    input: {
+      path: apiUrl,
+      fetch: {
+        headers: { 'Authorization': `Bearer ${token}` },
+      },
+    },
+    output: 'src/client',
+    plugins: ['@hey-api/typescript', '@hey-api/sdk'],
+  });
+});
+```
+
+## Custom Logging
+
+Control logging output with a custom Logger:
+
+```typescript
+import { createClient, Logger } from '@hey-api/openapi-ts';
+
+const logger = new Logger();
+
+const contexts = await createClient(
+  {
+    input: 'openapi.json',
+    output: 'src/client',
+    logs: {
+      level: 'debug', // 'silent' | 'error' | 'warn' | 'info' | 'debug'
+      file: true,     // Enable log file
+      path: 'logs',   // Log directory
+    },
+  },
+  logger,
+);
+
+// Report performance metrics
+logger.report(true);
+```
+
+## Error Handling
+
+Handle errors during generation:
+
+```typescript
+import { createClient } from '@hey-api/openapi-ts';
+
+try {
+  await createClient({
+    input: 'https://api.example.com/openapi.json',
+    output: 'src/client',
+  });
+} catch (error) {
+  if (error instanceof Error) {
+    console.error('Generation failed:', error.message);
+    
+    // Check for specific error types
+    if (error.message.includes('Request failed')) {
+      console.error('Failed to fetch OpenAPI specification');
+    } else if (error.message.includes('validation')) {
+      console.error('Configuration validation failed');
+    }
+  }
+  process.exit(1);
+}
+```
+
+## Integration Examples
+
+### Build Script
+
+Integrate with your build process:
+
+```typescript scripts/generate-client.ts
+import { createClient } from '@hey-api/openapi-ts';
+
+async function generateClient() {
+  console.log('Generating API client...');
+  
+  const startTime = Date.now();
+  
+  await createClient({
+    input: process.env.OPENAPI_URL || 'openapi.json',
+    output: 'src/client',
+    plugins: [
+      '@hey-api/typescript',
+      '@hey-api/sdk',
+      'zod',
+    ],
+    dryRun: process.env.DRY_RUN === 'true',
+  });
+  
+  const duration = Date.now() - startTime;
+  console.log(`Client generated in ${duration}ms`);
+}
+
+generatePClient().catch((error) => {
+  console.error('Failed to generate client:', error);
+  process.exit(1);
+});
+```
+
+Add to `package.json`:
+
+```json
+{
+  "scripts": {
+    "generate": "tsx scripts/generate-client.ts",
+    "prebuild": "npm run generate"
+  }
+}
+```
+
+### Vite Plugin
+
+Create a Vite plugin for development:
+
+```typescript vite-plugin-openapi.ts
+import type { Plugin } from 'vite';
+import { createClient } from '@hey-api/openapi-ts';
+
+export function openApiPlugin(): Plugin {
+  return {
+    name: 'vite-plugin-openapi',
+    
+    async buildStart() {
+      await createClient({
+        input: 'openapi.json',
+        output: 'src/client',
+        plugins: ['@hey-api/typescript', '@hey-api/sdk'],
+        logs: { level: 'silent' },
+      });
+    },
+  };
+}
+```
+
+### Next.js Integration
+
+Generate client before Next.js builds:
+
+```typescript scripts/setup.ts
+import { createClient } from '@hey-api/openapi-ts';
+
+async function setup() {
+  // Generate API client
+  await createClient({
+    input: process.env.NEXT_PUBLIC_API_SPEC!,
+    output: 'src/lib/api',
+    plugins: [
+      '@hey-api/typescript',
+      {
+        name: '@hey-api/sdk',
+        asClass: false,
+      },
+    ],
+  });
+}
+
+setup().catch(console.error);
+```
+
+### Custom Plugin Loader
+
+Dynamically load plugins based on environment:
+
+```typescript
+import { createClient } from '@hey-api/openapi-ts';
+
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+const plugins = [
+  '@hey-api/typescript',
+  '@hey-api/sdk',
+  // Add validators only in development
+  ...(isDevelopment ? ['zod'] : []),
+];
+
+await createClient({
+  input: 'openapi.json',
+  output: 'src/client',
+  plugins,
+});
+```
+
+## Working with the Context
+
+The returned `Context` object contains information about the generation:
+
+```typescript
+import { createClient } from '@hey-api/openapi-ts';
+
+const [context] = await createClient({
+  input: 'openapi.json',
+  output: 'src/client',
+});
+
+if (context) {
+  // Access the configuration used
+  console.log('Output path:', context.config.output.path);
+  
+  // Access the parsed OpenAPI spec
+  console.log('API title:', context.spec.info.title);
+  console.log('API version:', context.spec.info.version);
+  
+  // Access the dependency graph
+  console.log('Operations:', Object.keys(context.ir.operations).length);
+  console.log('Schemas:', Object.keys(context.ir.schemas).length);
+}
+```
+
+## Dry Run Mode
+
+Test generation without writing files:
+
+```typescript
+import { createClient } from '@hey-api/openapi-ts';
+
+const contexts = await createClient({
+  input: 'openapi.json',
+  output: 'src/client',
+  dryRun: true, // Don't write files
+  logs: {
+    level: 'debug', // See what would be generated
+  },
+});
+
+console.log('Dry run complete - no files written');
+```
+
+## Advanced: Custom File Generation
+
+Access the generation pipeline for custom processing:
+
+```typescript
+import { createClient, type Context } from '@hey-api/openapi-ts';
+
+const [context] = await createClient({
+  input: 'openapi.json',
+  output: 'src/client',
+});
+
+if (context) {
+  // Access the project instance
+  const project = context.project;
+  
+  // Iterate over generated files
+  for (const [fileName, file] of project.files) {
+    console.log(`Generated: ${fileName}`);
+    
+    // Access file content (not recommended - use file system instead)
+    // const content = file.toString();
+  }
+}
+```
+
+## TypeScript Configuration
+
+When using programmatically, ensure your `tsconfig.json` supports ESM:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "esModuleInterop": true
+  }
+}
+```
+
+## Best Practices
+
+<Steps>
+
+### Use Type Helpers
+
+Always use `defineConfig` for type safety:
+
+```typescript
+import { defineConfig } from '@hey-api/openapi-ts';
+
+const config = defineConfig({ /* ... */ });
+```
+
+### Handle Errors Appropriately
+
+Wrap `createClient` in try-catch and handle errors:
+
+```typescript
+try {
+  await createClient(config);
+} catch (error) {
+  console.error('Generation failed:', error);
+  process.exit(1);
+}
+```
+
+### Use Environment Variables
+
+Store sensitive data in environment variables:
+
+```typescript
+const config = defineConfig({
+  input: {
+    path: process.env.OPENAPI_URL!,
+    fetch: {
+      headers: {
+        'Authorization': `Bearer ${process.env.API_TOKEN}`,
+      },
+    },
+  },
+});
+```
+
+### Enable Logging for Debugging
+
+Use debug logging to troubleshoot issues:
+
+```typescript
+await createClient({
+  // ...
+  logs: {
+    level: 'debug',
+    file: true,
+  },
+});
+```
+
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Plugins" icon="puzzle-piece" href="/advanced/custom-plugins">
+    Build custom plugins to extend code generation
+  </Card>
+  <Card title="Watch Mode" icon="eye" href="/advanced/watch-mode">
+    Configure automatic regeneration on file changes
+  </Card>
+</CardGroup>

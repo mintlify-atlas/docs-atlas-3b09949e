@@ -1,0 +1,410 @@
+---
+title: React Query Example
+description: Build type-safe React applications with TanStack Query and OpenAPI TypeScript
+---
+
+This example demonstrates integration with TanStack Query (React Query) for powerful data fetching, caching, and state management in React applications.
+
+## Configuration
+
+### OpenAPI TypeScript Config
+
+Create `openapi-ts.config.ts` in your project root:
+
+```typescript openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input:
+    'https://raw.githubusercontent.com/swagger-api/swagger-petstore/master/src/main/resources/openapi.yaml',
+  logs: {
+    path: './logs',
+  },
+  output: {
+    path: './src/client',
+    postProcess: ['oxfmt', 'eslint'],
+  },
+  plugins: [
+    '@hey-api/client-fetch',
+    '@hey-api/schemas',
+    {
+      instance: true,
+      name: '@hey-api/sdk',
+    },
+    {
+      enums: 'javascript',
+      name: '@hey-api/typescript',
+    },
+    '@tanstack/react-query',
+  ],
+});
+```
+
+Key features:
+- `@tanstack/react-query` plugin generates hooks and options
+- `@hey-api/client-fetch` for Fetch API client
+- `instance: true` creates SDK instance
+
+### Package Dependencies
+
+```json package.json
+{
+  "dependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-query-devtools": "^5.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "latest",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0"
+  },
+  "scripts": {
+    "openapi-ts": "openapi-ts",
+    "dev": "vite"
+  }
+}
+```
+
+## Application Setup
+
+### Main Entry Point
+
+Configure the QueryClient and set up the global client:
+
+```typescript src/main.tsx
+import '@radix-ui/themes/styles.css';
+import { Theme } from '@radix-ui/themes';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+
+import App from './App.tsx';
+import { client } from './client/client.gen';
+import { Sdk } from './client/sdk.gen.ts';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60000,
+    },
+  },
+});
+
+// configure internal service client
+client.setConfig({
+  // set default base url for requests
+  baseUrl: 'https://petstore3.swagger.io/api/v3',
+  // set default headers for requests
+  headers: {
+    Authorization: 'Bearer <token_from_service_client>',
+  },
+});
+
+new Sdk();
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <Theme appearance="dark">
+        <App />
+      </Theme>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  </React.StrictMode>,
+);
+```
+
+## Usage
+
+### Component with Queries and Mutations
+
+```typescript src/App.tsx
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+
+import {
+  addPetMutation,
+  getPetByIdOptions,
+  updatePetMutation,
+} from './client/@tanstack/react-query.gen';
+import { createClient } from './client/client';
+import { PetSchema } from './client/schemas.gen';
+import type { Pet } from './client/types.gen';
+
+const localClient = createClient({
+  baseUrl: 'https://petstore3.swagger.io/api/v3',
+  headers: {
+    Authorization: 'Bearer <token_from_local_client>',
+  },
+});
+
+localClient.interceptors.request.use((request, options) => {
+  // Add authorization tokens to protected paths
+  if (options.url === '/pet/{petId}' && options.method === 'GET' && Math.random() < 0.5) {
+    request.headers.set('Authorization', 'Bearer <token_from_interceptor>');
+  }
+  return request;
+});
+
+function App() {
+  const [pet, setPet] = useState<Pet>();
+  const [petId, setPetId] = useState<number>();
+  const [isRequiredNameError, setIsRequiredNameError] = useState(false);
+
+  // Query with options
+  const { data, error } = useQuery({
+    ...getPetByIdOptions({
+      client: localClient,
+      path: {
+        petId: petId!,
+      },
+    }),
+    enabled: Boolean(petId),
+  });
+
+  // Add pet mutation
+  const addPet = useMutation({
+    ...addPetMutation(),
+    onError: (error) => {
+      console.log(error);
+      setIsRequiredNameError(false);
+    },
+    onSuccess: (data) => {
+      setPet(data);
+      setIsRequiredNameError(false);
+    },
+  });
+
+  // Update pet mutation
+  const updatePet = useMutation({
+    ...updatePetMutation(),
+    onError: (error) => {
+      console.log(error);
+    },
+    onSuccess: (data) => {
+      setPet(data);
+    },
+  });
+
+  const onAddPet = async (formData: FormData) => {
+    // Form validation using schemas
+    if (PetSchema.required.includes('name') && !formData.get('name')) {
+      setIsRequiredNameError(true);
+      return;
+    }
+
+    addPet.mutate({
+      body: {
+        category: {
+          id: 0,
+          name: formData.get('category') as string,
+        },
+        id: 0,
+        name: formData.get('name') as string,
+        photoUrls: ['string'],
+        status: 'available',
+        tags: [{ id: 0, name: 'string' }],
+      },
+    });
+  };
+
+  const onGetPetById = async () => {
+    setPetId(Math.floor(Math.random() * 10 + 1));
+  };
+
+  const onUpdatePet = async () => {
+    updatePet.mutate({
+      body: {
+        category: { id: 0, name: 'Cats' },
+        id: 2,
+        name: 'Updated Kitty',
+        photoUrls: ['string'],
+        status: 'available',
+        tags: [{ id: 0, name: 'string' }],
+      },
+      headers: {
+        Authorization: 'Bearer <token_from_method>',
+      },
+    });
+  };
+
+  useEffect(() => {
+    if (error) {
+      console.log(error);
+      return;
+    }
+    setPet(data!);
+  }, [data, error]);
+
+  return (
+    <div>
+      <h1>@hey-api/openapi-ts 🤝 TanStack React Query</h1>
+      
+      {pet && (
+        <div>
+          <h2>{pet.name}</h2>
+          <p>Category: {pet.category?.name ?? 'N/A'}</p>
+        </div>
+      )}
+      
+      <button onClick={onGetPetById}>Get Random Pet</button>
+      <button onClick={onUpdatePet}>Update Pet</button>
+      
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        onAddPet(new FormData(e.currentTarget));
+      }}>
+        <input name="name" placeholder="Name" />
+        <input name="category" placeholder="Category" />
+        <button type="submit">Add Pet</button>
+      </form>
+    </div>
+  );
+}
+
+export default App;
+```
+
+## Generated Helpers
+
+The `@tanstack/react-query` plugin generates several helpers:
+
+### Query Options
+
+```typescript
+// Generated query options
+const options = getPetByIdOptions({
+  path: { petId: 123 },
+});
+
+// Use with useQuery
+const { data } = useQuery(options);
+
+// Use with useQueries for parallel queries
+const results = useQueries({
+  queries: [
+    getPetByIdOptions({ path: { petId: 1 } }),
+    getPetByIdOptions({ path: { petId: 2 } }),
+  ],
+});
+```
+
+### Mutation Helpers
+
+```typescript
+// Generated mutation options
+const mutation = useMutation({
+  ...addPetMutation(),
+  onSuccess: (data) => {
+    console.log('Pet added:', data);
+  },
+});
+
+// Call the mutation
+mutation.mutate({
+  body: {
+    name: 'Fluffy',
+    status: 'available',
+    photoUrls: [],
+  },
+});
+```
+
+## Key Features
+
+### Type Safety
+
+All queries and mutations are fully typed:
+
+```typescript
+// Query result is typed as Pet | undefined
+const { data } = useQuery(getPetByIdOptions({ path: { petId: 1 } }));
+
+// Mutation payload is validated
+addPet.mutate({
+  body: {
+    name: 'required',
+    photoUrls: ['required'],
+    // TypeScript error if required fields missing
+  },
+});
+```
+
+### Schema Validation
+
+Use generated schemas for runtime validation:
+
+```typescript
+import { PetSchema } from './client/schemas.gen';
+
+// Check required fields
+if (PetSchema.required.includes('name')) {
+  // Name is required
+}
+
+// Access schema properties
+console.log(PetSchema.properties.name.type); // 'string'
+```
+
+### Client Interceptors
+
+Add middleware for authentication and logging:
+
+```typescript
+localClient.interceptors.request.use((request, options) => {
+  // Add auth header
+  request.headers.set('Authorization', `Bearer ${getToken()}`);
+  return request;
+});
+
+localClient.interceptors.response.use((response) => {
+  // Log responses
+  console.log('Response:', response.status);
+  return response;
+});
+```
+
+## Running the Example
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/hey-api/openapi-ts.git
+    cd openapi-ts
+    ```
+  </Step>
+  
+  <Step title="Install dependencies">
+    ```bash
+    pnpm install
+    ```
+  </Step>
+  
+  <Step title="Run the React Query example">
+    ```bash
+    pnpm example react-query dev
+    ```
+  </Step>
+  
+  <Step title="Open in browser">
+    Navigate to `http://localhost:5173`
+  </Step>
+</Steps>
+
+## Full Example
+
+View the complete example in the repository:
+
+[React Query Example on GitHub](https://github.com/hey-api/openapi-ts/tree/main/examples/openapi-ts-tanstack-react-query)
+
+## Learn More
+
+<CardGroup cols={2}>
+  <Card title="TanStack Query Plugin" href="/plugins/tanstack-query" />
+  <Card title="Client Configuration" href="/clients/fetch" />
+  <Card title="SDK Plugin" href="/plugins/sdk" />
+  <Card title="Examples Overview" href="/examples/overview" />
+</CardGroup>

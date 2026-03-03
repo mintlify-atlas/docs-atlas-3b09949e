@@ -1,0 +1,574 @@
+---
+title: "Axios Client"
+description: "Popular HTTP client with advanced features and interceptors"
+---
+
+The Axios client wraps the popular Axios library, providing advanced features like request/response interceptors, automatic JSON transformation, and request cancellation.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @hey-api/client-axios axios
+```
+
+```bash pnpm
+pnpm add @hey-api/client-axios axios
+```
+
+```bash yarn
+yarn add @hey-api/client-axios axios
+```
+
+```bash bun
+bun add @hey-api/client-axios axios
+```
+
+</CodeGroup>
+
+<Note>
+Axios is a peer dependency and must be installed separately.
+</Note>
+
+## Basic Usage
+
+<Steps>
+
+<Step title="Create a client instance">
+
+```typescript
+import { createClient } from '@hey-api/client-axios';
+
+const client = createClient({
+  baseURL: 'https://api.example.com',
+});
+```
+
+</Step>
+
+<Step title="Make API calls">
+
+```typescript
+// GET request
+const response = await client.get({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+
+if (response.error) {
+  console.error('Error:', response.error);
+} else {
+  console.log('User:', response.data);
+}
+```
+
+</Step>
+
+</Steps>
+
+## Configuration
+
+The Axios client extends Axios configuration with OpenAPI TypeScript features:
+
+### Client Options
+
+```typescript
+import { createClient } from '@hey-api/client-axios';
+import axios from 'axios';
+
+const client = createClient({
+  // Base URL for all requests
+  baseURL: 'https://api.example.com',
+
+  // Axios instance (optional)
+  axios: axios.create({
+    timeout: 5000,
+  }),
+
+  // Default headers
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key',
+  },
+
+  // Error handling
+  throwOnError: false,
+
+  // Authentication
+  auth: async (auth) => getToken(),
+
+  // Body serialization
+  bodySerializer: (body) => JSON.stringify(body),
+
+  // Query serialization (Axios native)
+  paramsSerializer: (params) => {
+    return new URLSearchParams(params).toString();
+  },
+
+  // Custom query serialization (OpenAPI TypeScript)
+  querySerializer: {
+    array: { style: 'form', explode: true },
+    object: { style: 'deepObject', explode: true },
+  },
+
+  // Request validator
+  requestValidator: async (data) => validateRequest(data),
+
+  // Response transformer
+  responseTransformer: async (data) => transformResponse(data),
+
+  // Response validator
+  responseValidator: async (data) => validateResponse(data),
+
+  // Standard Axios options
+  timeout: 10000,
+  maxRedirects: 5,
+  maxContentLength: 2000,
+  maxBodyLength: 2000,
+  responseType: 'json', // 'json' | 'text' | 'stream' | 'blob' | 'arraybuffer'
+  responseEncoding: 'utf8',
+  validateStatus: (status) => status >= 200 && status < 300,
+  withCredentials: false,
+});
+```
+
+### Custom Axios Instance
+
+Use an existing Axios instance:
+
+```typescript
+import { createClient } from '@hey-api/client-axios';
+import axios from 'axios';
+
+// Create custom Axios instance
+const axiosInstance = axios.create({
+  timeout: 5000,
+  headers: {
+    'X-Custom-Header': 'value',
+  },
+});
+
+// Add Axios interceptors
+axiosInstance.interceptors.request.use((config) => {
+  console.log('Request:', config.url);
+  return config;
+});
+
+// Use with OpenAPI TypeScript client
+const client = createClient({
+  baseURL: 'https://api.example.com',
+  axios: axiosInstance,
+});
+```
+
+### Access Axios Instance
+
+```typescript
+const client = createClient({
+  baseURL: 'https://api.example.com',
+});
+
+// Access the underlying Axios instance
+client.instance.defaults.timeout = 5000;
+
+// Add Axios interceptors
+client.instance.interceptors.request.use((config) => {
+  console.log('Request:', config.url);
+  return config;
+});
+```
+
+## HTTP Methods
+
+<Tabs>
+
+<Tab title="GET">
+
+```typescript
+const response = await client.get({
+  url: '/users',
+  query: {
+    page: 1,
+    limit: 10,
+  },
+});
+
+if (!response.error) {
+  console.log('Users:', response.data);
+  console.log('Status:', response.status);
+  console.log('Headers:', response.headers);
+}
+```
+
+</Tab>
+
+<Tab title="POST">
+
+```typescript
+const response = await client.post({
+  url: '/users',
+  body: {
+    name: 'John Doe',
+    email: 'john@example.com',
+  },
+});
+
+if (!response.error) {
+  console.log('Created user:', response.data);
+}
+```
+
+</Tab>
+
+<Tab title="PUT">
+
+```typescript
+const response = await client.put({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    name: 'Jane Doe',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="PATCH">
+
+```typescript
+const response = await client.patch({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    email: 'jane@example.com',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="DELETE">
+
+```typescript
+const response = await client.delete({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+
+if (!response.error) {
+  console.log('User deleted');
+}
+```
+
+</Tab>
+
+</Tabs>
+
+## Response Format
+
+The Axios client returns Axios response objects:
+
+```typescript
+const response = await client.get({ url: '/users' });
+
+// On success
+if (!response.error) {
+  response.data;       // Response data
+  response.status;     // HTTP status code
+  response.statusText; // HTTP status message
+  response.headers;    // Response headers
+  response.config;     // Request configuration
+}
+
+// On error
+if (response.error) {
+  response.error;      // Error data from response
+  response.status;     // HTTP status code
+  response.statusText; // HTTP status message
+  response.response;   // Full error response
+  response.config;     // Request configuration
+}
+```
+
+## Authentication
+
+### Bearer Token
+
+```typescript
+const client = createClient({
+  baseURL: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'bearer') {
+      const token = await getAccessToken();
+      return token;
+    }
+  },
+});
+```
+
+### Basic Authentication
+
+```typescript
+const client = createClient({
+  baseURL: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'basic') {
+      // Return base64 encoded credentials
+      return btoa('username:password');
+    }
+  },
+});
+```
+
+### API Key
+
+```typescript
+const client = createClient({
+  baseURL: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.type === 'apiKey') {
+      return process.env.API_KEY;
+    }
+  },
+});
+
+// Per-request security
+const response = await client.get({
+  url: '/protected',
+  security: [
+    {
+      type: 'apiKey',
+      in: 'header',
+      name: 'X-API-Key',
+    },
+  ],
+});
+```
+
+## Server-Sent Events
+
+Stream real-time data with Server-Sent Events:
+
+```typescript
+const stream = await client.sse.get({
+  url: '/events',
+  onSseEvent: (event) => {
+    console.log('Event:', event.data);
+  },
+  onSseError: (error) => {
+    console.error('Stream error:', error);
+  },
+  sseMaxRetryAttempts: 3,
+  sseMaxRetryDelay: 5000,
+});
+
+// Close the stream
+stream.close();
+```
+
+## Request Cancellation
+
+Cancel requests using Axios CancelToken or AbortController:
+
+### AbortController (Recommended)
+
+```typescript
+const controller = new AbortController();
+
+const promise = client.get({
+  url: '/users',
+  signal: controller.signal,
+});
+
+// Cancel the request
+controller.abort();
+```
+
+### Axios CancelToken
+
+```typescript
+import axios from 'axios';
+
+const source = axios.CancelToken.source();
+
+const promise = client.get({
+  url: '/users',
+  cancelToken: source.token,
+});
+
+// Cancel the request
+source.cancel('Request cancelled by user');
+```
+
+## Advanced Features
+
+### Progress Monitoring
+
+```typescript
+const response = await client.post({
+  url: '/upload',
+  body: formData,
+  onUploadProgress: (progressEvent) => {
+    const percentCompleted = Math.round(
+      (progressEvent.loaded * 100) / progressEvent.total
+    );
+    console.log('Upload progress:', percentCompleted + '%');
+  },
+  onDownloadProgress: (progressEvent) => {
+    console.log('Download progress:', progressEvent.loaded);
+  },
+});
+```
+
+### Response Type
+
+```typescript
+// Download file as blob
+const response = await client.get({
+  url: '/file.pdf',
+  responseType: 'blob',
+});
+
+if (!response.error) {
+  const blob = response.data;
+  const url = URL.createObjectURL(blob);
+  window.open(url);
+}
+
+// Stream response
+const response = await client.get({
+  url: '/large-file',
+  responseType: 'stream',
+});
+
+if (!response.error) {
+  response.data.on('data', (chunk) => {
+    console.log('Chunk:', chunk);
+  });
+}
+```
+
+### Request Retry
+
+Use axios-retry for automatic retries:
+
+```typescript
+import { createClient } from '@hey-api/client-axios';
+import axios from 'axios';
+import axiosRetry from 'axios-retry';
+
+const axiosInstance = axios.create();
+
+axiosRetry(axiosInstance, {
+  retries: 3,
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (error) => {
+    return axiosRetry.isNetworkOrIdempotentRequestError(error)
+      || error.response?.status === 429;
+  },
+});
+
+const client = createClient({
+  baseURL: 'https://api.example.com',
+  axios: axiosInstance,
+});
+```
+
+### Proxy Configuration
+
+```typescript
+const client = createClient({
+  baseURL: 'https://api.example.com',
+  proxy: {
+    host: 'proxy.example.com',
+    port: 8080,
+    auth: {
+      username: 'user',
+      password: 'pass',
+    },
+  },
+});
+```
+
+### HTTP/HTTPS Agents
+
+```typescript
+import https from 'https';
+
+const client = createClient({
+  baseURL: 'https://api.example.com',
+  httpsAgent: new https.Agent({
+    rejectUnauthorized: false,
+    keepAlive: true,
+  }),
+});
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  Client,
+  Config,
+  RequestOptions,
+  RequestResult,
+} from '@hey-api/client-axios';
+import type { AxiosInstance, AxiosResponse } from 'axios';
+
+// Custom client wrapper
+function createApiClient(config: Config): Client {
+  const client = createClient(config);
+  
+  // Access Axios instance
+  const instance: AxiosInstance = client.instance;
+  
+  return client;
+}
+
+// Type-safe response
+type UserResponse = RequestResult<
+  { id: number; name: string },
+  { message: string }
+>;
+
+const response: UserResponse = await client.get({
+  url: '/users/1',
+});
+```
+
+## Comparison with Fetch Client
+
+| Feature | Axios Client | Fetch Client |
+|---------|-------------|-------------|
+| Dependencies | Requires Axios | Zero dependencies |
+| Browser Support | IE11+ | Modern browsers |
+| Node.js Support | Built-in | Requires polyfill |
+| Request Cancellation | CancelToken, AbortController | AbortController |
+| Progress Events | Yes | No |
+| Interceptors | Axios + OpenAPI | OpenAPI only |
+| Response Type | Automatic JSON | Manual parsing |
+| Bundle Size | ~13KB | ~2KB |
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Angular Client" icon="angular" href="/clients/angular">
+  Use with Angular applications
+</Card>
+
+<Card title="Ky Client" icon="rocket" href="/clients/ky">
+  Lightweight alternative with retry
+</Card>
+
+<Card title="Error Handling" icon="triangle-exclamation" href="/clients/overview#error-handling">
+  Handle errors effectively
+</Card>
+
+<Card title="Interceptors" icon="filter" href="/clients/overview#requestresponse-interceptors">
+  Add request/response interceptors
+</Card>
+
+</CardGroup>

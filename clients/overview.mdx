@@ -1,0 +1,254 @@
+---
+title: "HTTP Clients Overview"
+description: "Choose the right HTTP client for your OpenAPI TypeScript project"
+---
+
+OpenAPI TypeScript supports multiple HTTP clients to match your project's needs and framework requirements. Each client provides type-safe API calls with full TypeScript support.
+
+## Available Clients
+
+<CardGroup cols={2}>
+
+<Card title="Fetch" icon="globe" href="/clients/fetch">
+  Native browser Fetch API client. Zero dependencies, works everywhere.
+</Card>
+
+<Card title="Axios" icon="arrow-right-arrow-left" href="/clients/axios">
+  Popular HTTP client with request/response interceptors and advanced features.
+</Card>
+
+<Card title="Angular" icon="angular" href="/clients/angular">
+  Native Angular HttpClient integration with dependency injection support.
+</Card>
+
+<Card title="Ky" icon="rocket" href="/clients/ky">
+  Tiny, elegant HTTP client built on the Fetch API with retry support.
+</Card>
+
+<Card title="Next.js" icon="next" href="/clients/next">
+  Optimized for Next.js with server components and caching support.
+</Card>
+
+<Card title="Nuxt" icon="vue" href="/clients/nuxt">
+  Native Nuxt integration with composables and SSR support.
+</Card>
+
+<Card title="ofetch" icon="cloud" href="/clients/ofetch">
+  Universal fetch wrapper with advanced features and interceptors.
+</Card>
+
+<Card title="Custom" icon="wrench" href="/clients/custom">
+  Build your own client adapter for any HTTP library.
+</Card>
+
+</CardGroup>
+
+## Quick Comparison
+
+| Client | Use Case | Key Features | Bundle Size |
+|--------|----------|--------------|-------------|
+| **Fetch** | Universal | Native API, zero deps | ~2KB |
+| **Axios** | Node.js, advanced | Interceptors, cancellation | ~13KB |
+| **Angular** | Angular apps | DI, RxJS observables | N/A |
+| **Ky** | Modern browsers | Retry, timeout, hooks | ~5KB |
+| **Next.js** | Next.js apps | Server components, caching | ~2KB |
+| **Nuxt** | Nuxt apps | Composables, SSR | N/A |
+| **ofetch** | Universal | Advanced features, hooks | ~3KB |
+| **Custom** | Any library | Full control | Varies |
+
+## Common Features
+
+All clients share these core capabilities:
+
+### Type Safety
+
+```typescript
+import { client } from './client';
+
+// Fully typed request and response
+const { data, error } = await client.get({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+
+// TypeScript knows the shape of data and error
+```
+
+### Configuration
+
+All clients support a common configuration interface:
+
+```typescript
+import { createClient } from '@hey-api/client-fetch';
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  headers: {
+    'Authorization': 'Bearer token',
+  },
+});
+```
+
+### Authentication
+
+Built-in support for API key and HTTP authentication:
+
+```typescript
+const client = createClient({
+  auth: async (auth) => {
+    if (auth.type === 'http' && auth.scheme === 'bearer') {
+      return getAccessToken();
+    }
+  },
+});
+```
+
+### Request/Response Interceptors
+
+Most clients support interceptors for request and response transformation:
+
+```typescript
+// Add request interceptor
+client.interceptors.request.use((request, options) => {
+  console.log('Request:', request.url);
+  return request;
+});
+
+// Add response interceptor
+client.interceptors.response.use((response, request, options) => {
+  console.log('Response:', response.status);
+  return response;
+});
+
+// Add error interceptor
+client.interceptors.error.use((error, response, request, options) => {
+  console.error('Error:', error);
+  return error;
+});
+```
+
+### Server-Sent Events (SSE)
+
+All clients support SSE for real-time data streaming:
+
+```typescript
+const stream = await client.sse.get({
+  url: '/events',
+  onSseEvent: (event) => {
+    console.log('Event:', event.data);
+  },
+});
+
+// Close the stream when done
+stream.close();
+```
+
+## Response Styles
+
+Most clients support two response styles:
+
+### Fields Style (Default)
+
+Returns an object with `data`, `error`, `request`, and `response` fields:
+
+```typescript
+const { data, error, response } = await client.get({
+  url: '/users',
+  responseStyle: 'fields', // default
+});
+
+if (error) {
+  console.error('Error:', error);
+} else {
+  console.log('Data:', data);
+}
+```
+
+### Data Style
+
+Returns only the data (or undefined on error):
+
+```typescript
+const data = await client.get({
+  url: '/users',
+  responseStyle: 'data',
+});
+
+if (data) {
+  console.log('Users:', data);
+}
+```
+
+## Error Handling
+
+Two approaches to error handling:
+
+### Check error field (default)
+
+```typescript
+const { data, error } = await client.get({ url: '/users' });
+
+if (error) {
+  // Handle error
+} else {
+  // Use data
+}
+```
+
+### Throw errors
+
+```typescript
+try {
+  const { data } = await client.get({
+    url: '/users',
+    throwOnError: true,
+  });
+  // Use data
+} catch (error) {
+  // Handle error
+}
+```
+
+## Choosing a Client
+
+<Steps>
+
+<Step title="Consider your framework">
+  If you're using Angular, use `@hey-api/client-angular`. For Next.js, use `@hey-api/client-next`. For Nuxt, use `@hey-api/client-nuxt`.
+</Step>
+
+<Step title="Evaluate dependencies">
+  If you want zero dependencies, use `@hey-api/client-fetch`. If you already use Axios, use `@hey-api/client-axios`.
+</Step>
+
+<Step title="Check feature requirements">
+  Need retry logic? Use `@hey-api/client-ky`. Need advanced Node.js features? Use `@hey-api/client-ofetch`.
+</Step>
+
+<Step title="Start simple">
+  When in doubt, start with `@hey-api/client-fetch`. It's the default and works everywhere.
+</Step>
+
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Get Started" icon="rocket" href="/clients/fetch">
+  Start with the Fetch client
+</Card>
+
+<Card title="Configuration" icon="gear" href="/clients/fetch#configuration">
+  Learn about client configuration
+</Card>
+
+<Card title="Authentication" icon="lock" href="/clients/fetch#authentication">
+  Set up API authentication
+</Card>
+
+<Card title="Interceptors" icon="filter" href="/clients/fetch#interceptors">
+  Add request/response interceptors
+</Card>
+
+</CardGroup>

@@ -1,0 +1,516 @@
+---
+title: Valibot Plugin
+description: Generate Valibot validation schemas from OpenAPI specifications
+---
+
+The Valibot plugin generates [Valibot](https://valibot.dev) schemas from your OpenAPI specification. Valibot is a modular and lightweight schema library with excellent bundle size, making it ideal for client-side applications.
+
+## Installation
+
+Install the required dependencies:
+
+```bash
+npm install valibot @hey-api/openapi-ts
+```
+
+## Configuration
+
+Add the Valibot plugin to your `openapi-ts.config.ts`:
+
+```ts openapi-ts.config.ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'path/to/openapi.json',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/valibot',
+      // Configuration options
+    },
+  ],
+});
+```
+
+## Schema Generation
+
+### Definitions
+
+Generate schemas for reusable component definitions:
+
+```ts
+{
+  name: '@hey-api/valibot',
+  definitions: true,  // Enable definitions (default)
+}
+```
+
+Customize definition schema names and casing:
+
+```ts
+{
+  name: '@hey-api/valibot',
+  definitions: {
+    enabled: true,
+    name: 'v{{name}}',  // Naming pattern (default)
+    case: 'camelCase',  // Identifier casing
+  },
+}
+```
+
+**Generated output:**
+
+```ts valibot.gen.ts
+import * as v from 'valibot';
+
+/**
+ * A pet in the pet store
+ */
+export const vPet = v.object({
+  id: v.pipe(v.number(), v.integer()),
+  name: v.string(),
+  status: v.optional(v.picklist(['available', 'pending', 'sold'])),
+});
+```
+
+### Requests
+
+Generate validators for API request data (body, query, path, headers):
+
+```ts
+{
+  name: '@hey-api/valibot',
+  requests: {
+    enabled: true,
+    name: 'v{{name}}Data',  // Naming pattern
+    case: 'camelCase',
+  },
+}
+```
+
+**Generated output:**
+
+```ts valibot.gen.ts
+export const vGetPetByIdData = v.object({
+  path: v.object({
+    petId: v.pipe(v.number(), v.integer()),
+  }),
+  query: v.optional(v.object({
+    includeDetails: v.optional(v.boolean()),
+  })),
+});
+```
+
+### Responses
+
+Generate validators for API responses:
+
+```ts
+{
+  name: '@hey-api/valibot',
+  responses: {
+    enabled: true,
+    name: 'v{{name}}Response',  // Naming pattern
+    case: 'camelCase',
+  },
+}
+```
+
+**Generated output:**
+
+```ts valibot.gen.ts
+export const vGetPetByIdResponse = v.object({
+  id: v.pipe(v.number(), v.integer()),
+  name: v.string(),
+  status: v.optional(v.picklist(['available', 'pending', 'sold'])),
+});
+```
+
+### Webhooks
+
+Generate validators for webhook payloads:
+
+```ts
+{
+  name: '@hey-api/valibot',
+  webhooks: {
+    enabled: true,
+    name: 'v{{name}}WebhookRequest',
+    case: 'camelCase',
+  },
+}
+```
+
+## Valibot Pipes
+
+Valibot uses a pipe-based architecture for transformations and validations. The plugin generates schemas using Valibot's pipe syntax:
+
+```ts
+// String with length constraints
+v.pipe(
+  v.string(),
+  v.minLength(3),
+  v.maxLength(50)
+)
+
+// Number with range constraints
+v.pipe(
+  v.number(),
+  v.integer(),
+  v.minValue(1),
+  v.maxValue(100)
+)
+
+// String with pattern validation
+v.pipe(
+  v.string(),
+  v.regex(/^[a-zA-Z0-9_]*$/)
+)
+```
+
+## Metadata Support
+
+Enable Valibot metadata for additional schema information:
+
+```ts
+{
+  name: '@hey-api/valibot',
+  metadata: true,  // Enable metadata (default: false)
+}
+```
+
+Metadata is useful for documentation, code generation, AI structured outputs, and form validation.
+
+## Usage Examples
+
+### Validating API Requests
+
+```ts
+import * as v from 'valibot';
+import { vCreatePetData } from './client/valibot.gen';
+
+// Validate request data
+const result = v.safeParse(vCreatePetData, {
+  body: {
+    name: 'Fluffy',
+    status: 'available',
+  },
+});
+
+if (result.success) {
+  // Data is valid and typed
+  await fetch('/api/pets', {
+    method: 'POST',
+    body: JSON.stringify(result.output.body),
+  });
+} else {
+  // Handle validation errors
+  console.error(result.issues);
+}
+```
+
+### Validating API Responses
+
+```ts
+import * as v from 'valibot';
+import { vGetPetByIdResponse } from './client/valibot.gen';
+
+const response = await fetch('/api/pets/123');
+const data = await response.json();
+
+// Validate and parse response
+const pet = v.parse(vGetPetByIdResponse, data);
+// pet is now fully typed
+```
+
+### Async Validation
+
+```ts
+import * as v from 'valibot';
+import { vCreatePetData } from './client/valibot.gen';
+
+// Use parseAsync for async validation
+const data = await v.parseAsync(vCreatePetData, requestData);
+```
+
+### Type Inference
+
+```ts
+import * as v from 'valibot';
+import { vPet } from './client/valibot.gen';
+
+// Infer TypeScript type from Valibot schema
+type Pet = v.InferOutput<typeof vPet>;
+
+const pet: Pet = {
+  id: 1,
+  name: 'Fluffy',
+};
+```
+
+### Form Validation with React
+
+```tsx
+import * as v from 'valibot';
+import { useState } from 'react';
+import { vCreatePetData } from './client/valibot.gen';
+
+// Extract the body schema from the request data schema
+const CreatePetSchema = vCreatePetData.entries.body;
+type CreatePetForm = v.InferOutput<typeof CreatePetSchema>;
+
+function CreatePetForm() {
+  const [formData, setFormData] = useState<Partial<CreatePetForm>>({});
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate form data
+    const result = v.safeParse(CreatePetSchema, formData);
+
+    if (result.success) {
+      await fetch('/api/pets', {
+        method: 'POST',
+        body: JSON.stringify(result.output),
+      });
+      setErrors([]);
+    } else {
+      setErrors(result.issues.map(issue => issue.message));
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        value={formData.name || ''}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+      />
+
+      <select
+        value={formData.status || ''}
+        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+      >
+        <option value="available">Available</option>
+        <option value="pending">Pending</option>
+        <option value="sold">Sold</option>
+      </select>
+
+      {errors.length > 0 && (
+        <ul>
+          {errors.map((error, i) => <li key={i}>{error}</li>)}
+        </ul>
+      )}
+
+      <button type="submit">Create Pet</button>
+    </form>
+  );
+}
+```
+
+## String Formats
+
+Valibot automatically generates appropriate validators for OpenAPI string formats:
+
+| OpenAPI Format | Valibot Validator |
+|----------------|------------------|
+| `date` | `v.isoDate()` |
+| `date-time` | `v.isoTimestamp()` |
+| `email` | `v.email()` |
+| `ipv4`, `ipv6` | `v.ip()` |
+| `time` | `v.isoTimeSecond()` |
+| `uri` | `v.url()` |
+| `uuid` | `v.uuid()` |
+
+**Example:**
+
+```yaml
+# OpenAPI specification
+User:
+  type: object
+  properties:
+    email:
+      type: string
+      format: email
+    website:
+      type: string
+      format: uri
+    createdAt:
+      type: string
+      format: date-time
+```
+
+**Generated schema:**
+
+```ts
+export const vUser = v.object({
+  email: v.pipe(v.string(), v.email()),
+  website: v.pipe(v.string(), v.url()),
+  createdAt: v.pipe(v.string(), v.isoTimestamp()),
+});
+```
+
+## Advanced Configuration
+
+### Custom Naming Patterns
+
+Use functions for dynamic naming:
+
+```ts
+{
+  name: '@hey-api/valibot',
+  definitions: {
+    name: (name: string) => `valibotSchema${name}`,
+  },
+  requests: {
+    name: (name: string) => `${name}RequestSchema`,
+  },
+}
+```
+
+### Selective Schema Generation
+
+Disable specific schema categories:
+
+```ts
+{
+  name: '@hey-api/valibot',
+  definitions: true,
+  requests: false,    // Don't generate request schemas
+  responses: true,
+  webhooks: false,    // Don't generate webhook schemas
+}
+```
+
+### Global Configuration
+
+```ts
+import { defineConfig } from '@hey-api/openapi-ts';
+
+export default defineConfig({
+  input: 'path/to/openapi.json',
+  output: {
+    path: './src/client',
+  },
+  plugins: [
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/valibot',
+      case: 'camelCase',
+      comments: true,
+      metadata: false,
+      definitions: {
+        name: 'v{{name}}',
+      },
+      requests: {
+        name: 'v{{name}}Data',
+      },
+      responses: {
+        name: 'v{{name}}Response',
+      },
+    },
+  ],
+});
+```
+
+## Bundle Size Benefits
+
+Valibot is designed to be tree-shakable and has a smaller bundle size compared to other validation libraries:
+
+- **Modular architecture**: Only import what you need
+- **Tree-shakable**: Unused validators are removed during bundling
+- **Minimal runtime**: Core functionality is lightweight
+- **Pipe-based composition**: Efficient schema composition
+
+**Example bundle comparison:**
+
+```ts
+// Only the validators you use are included in your bundle
+import * as v from 'valibot';
+
+// This only bundles: object, string, number, integer, pipe
+const schema = v.object({
+  name: v.string(),
+  age: v.pipe(v.number(), v.integer()),
+});
+```
+
+## Type Reference
+
+The Valibot plugin exports these configuration types:
+
+```ts
+import type { ValibotPlugin } from '@hey-api/valibot';
+import { defineConfig } from '@hey-api/valibot';
+
+// Use the type helper for better type safety
+const valibotConfig = defineConfig({
+  name: '@hey-api/valibot',
+  // ... your configuration
+});
+```
+
+## Migration from Zod
+
+If you're migrating from Zod to Valibot:
+
+<Tabs>
+  <Tab title="Zod">
+    ```ts
+    import { z } from 'zod';
+
+    const schema = z.object({
+      name: z.string().min(3).max(50),
+      age: z.number().int().min(0),
+    });
+
+    type User = z.infer<typeof schema>;
+
+    const result = schema.safeParse(data);
+    if (result.success) {
+      console.log(result.data);
+    }
+    ```
+  </Tab>
+  <Tab title="Valibot">
+    ```ts
+    import * as v from 'valibot';
+
+    const schema = v.object({
+      name: v.pipe(v.string(), v.minLength(3), v.maxLength(50)),
+      age: v.pipe(v.number(), v.integer(), v.minValue(0)),
+    });
+
+    type User = v.InferOutput<typeof schema>;
+
+    const result = v.safeParse(schema, data);
+    if (result.success) {
+      console.log(result.output);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+**Key differences:**
+
+- Valibot uses `v.pipe()` for chaining validators instead of method chaining
+- Valibot uses `InferOutput` instead of `infer`
+- Valibot's parse result uses `output` instead of `data`
+- Valibot's validation issues use a different structure
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Validators Overview" icon="shield-check" href="/validators/overview">
+    Learn about validator plugins and their benefits
+  </Card>
+  <Card title="Zod Plugin" icon="shield-check" href="/validators/zod">
+    Alternative validator with method chaining syntax
+  </Card>
+  <Card title="Valibot Documentation" icon="external-link" href="https://valibot.dev">
+    Official Valibot library documentation
+  </Card>
+</CardGroup>

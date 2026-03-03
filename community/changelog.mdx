@@ -1,0 +1,162 @@
+---
+title: Changelog
+description: Recent releases and version history for OpenAPI TypeScript.
+---
+
+# Changelog
+
+Stay up to date with the latest features, improvements, and bug fixes in OpenAPI TypeScript.
+
+<Note>
+For breaking changes and migration guides, see the [Migration Guide](/community/migration-guide).
+</Note>
+
+## Latest Releases
+
+### v0.93.1
+
+#### Patch Changes
+
+- **plugin(@tanstack/query)**: Skip mutation queries for SSE endpoints ([#3470](https://github.com/hey-api/openapi-ts/pull/3470))
+- **client**: Avoid removing empty arrays from flat arguments ([#3451](https://github.com/hey-api/openapi-ts/pull/3451))
+- **plugin(zod)**: Apply nullable modifier to `additionalProperties` schema ([#3452](https://github.com/hey-api/openapi-ts/pull/3452))
+- **cli**: Do not set `logs.file` to `true` by default ([#3469](https://github.com/hey-api/openapi-ts/pull/3469))
+- **plugin(@hey-api/sdk)**: Correctly set required flat parameters ([#3458](https://github.com/hey-api/openapi-ts/pull/3458))
+- **plugin(zod/valibot)**: Add `u` flag on regex patterns with unicode property escapes ([#3468](https://github.com/hey-api/openapi-ts/pull/3468))
+- **plugin(@hey-api/typescript)**: Simplify union types if a member is `unknown` ([#3454](https://github.com/hey-api/openapi-ts/pull/3454))
+- **client(@hey-api/nuxt)**: Do not unwrap blob values ([#3459](https://github.com/hey-api/openapi-ts/pull/3459))
+- **client**: Support async `createClientConfig` ([#3445](https://github.com/hey-api/openapi-ts/pull/3445))
+
+### v0.93.0
+
+#### Minor Changes
+
+- **plugin(valibot)**: Remove `enum.nodes.nullable` resolver node ([#3396](https://github.com/hey-api/openapi-ts/pull/3396))
+  
+  <Note>
+  Valibot plugin no longer exposes the `enum.nodes.nullable` node. Nullable values are now handled outside of resolvers.
+  </Note>
+
+- **plugin(zod)**: Remove `enum.nodes.nullable` resolver node ([#3398](https://github.com/hey-api/openapi-ts/pull/3398))
+  
+  <Note>
+  Zod plugin no longer exposes the `enum.nodes.nullable` node. Nullable values are now handled outside of resolvers.
+  </Note>
+
+#### Patch Changes
+
+- **parser**: Prefer unprefixed schema names from external files ([#3417](https://github.com/hey-api/openapi-ts/pull/3417))
+- **parser(patch)**: Support callback for `patch.schemas` and `patch.operations` ([#3415](https://github.com/hey-api/openapi-ts/pull/3415))
+- **output**: Apply `output.header` to bundled files ([#3438](https://github.com/hey-api/openapi-ts/pull/3438))
+- **parser**: Handle OpenAPI 3.1 `contentMediaType` keyword as binary format ([#3431](https://github.com/hey-api/openapi-ts/pull/3431))
+- **client**: Expose `onRequest` in RequestOptions for SSE request interception ([#3392](https://github.com/hey-api/openapi-ts/pull/3392))
+- **plugin(zod)**: Use `.nullable()` and `.nullish()` methods ([#3398](https://github.com/hey-api/openapi-ts/pull/3398))
+- **plugin(valibot)**: Use `.nullable()` and `.nullish()` methods ([#3396](https://github.com/hey-api/openapi-ts/pull/3396))
+
+### v0.92.4
+
+#### Patch Changes
+
+- **plugin(@hey-api/transformers)**: Fix false positive warning for discriminated `oneOf` schemas ([#3379](https://github.com/hey-api/openapi-ts/pull/3379))
+- **plugin(@hey-api/client-nuxt)**: Forward `asyncDataOptions` to `useFetch` and `useLazyFetch` ([#3382](https://github.com/hey-api/openapi-ts/pull/3382))
+- **output**: Detect `importFileExtension` from tsconfig `module` option ([#3380](https://github.com/hey-api/openapi-ts/pull/3380))
+- **plugin(@hey-api/typescript)**: Deduplicate enum keys to avoid name collision ([#3376](https://github.com/hey-api/openapi-ts/pull/3376))
+- **plugin(@hey-api/client-nuxt)**: Unwrap `ComputedRef` body before serialization ([#3361](https://github.com/hey-api/openapi-ts/pull/3361))
+- **plugin(@angular/common)**: Use generics for HttpRequests ([#3384](https://github.com/hey-api/openapi-ts/pull/3384))
+
+### v0.92.0
+
+#### Minor Changes
+
+- **BREAKING**: Replace `exportFrom` array with `getExportFromFilePath()` function ([#3318](https://github.com/hey-api/openapi-ts/pull/3318))
+
+  <Warning>
+  The `exportFrom` property has been replaced with the `getExportFromFilePath()` function. This is a low-level feature affecting plugin developers.
+  </Warning>
+
+#### Patch Changes
+
+- **config**: Rename `exportFromIndex` option to `includeInEntry` ([#3318](https://github.com/hey-api/openapi-ts/pull/3318))
+- **config**: `includeInEntry` accepts function in addition to primitive value ([#3318](https://github.com/hey-api/openapi-ts/pull/3318))
+- **config**: Rename `output.indexFile` to `output.entryFile` ([#3318](https://github.com/hey-api/openapi-ts/pull/3318))
+- **plugin**: Add `comments` option to all plugins ([#3318](https://github.com/hey-api/openapi-ts/pull/3318))
+- **types**: Improve `defineConfig()` types ([#3318](https://github.com/hey-api/openapi-ts/pull/3318))
+
+### v0.91.0
+
+#### Minor Changes
+
+- **BREAKING**: Drop CommonJS (CJS) support. Package is now **ESM-only**. ([#3251](https://github.com/hey-api/openapi-ts/pull/3251))
+
+  <Warning>
+  This change simplifies the codebase and improves tree-shaking. See the [migration guide](/community/migration-guide#v0-91-0) for details.
+  </Warning>
+
+### v0.90.10
+
+#### Patch Changes
+
+- **plugin(@tanstack/*)**: Index mutation options symbol for all TanStack Query variants ([#3253](https://github.com/hey-api/openapi-ts/pull/3253))
+- **parser**: Inline deep path `$ref` references ([#3242](https://github.com/hey-api/openapi-ts/pull/3242))
+- **plugin(@hey-api/sdk)**: Correctly map body keys in flat mode ([#3255](https://github.com/hey-api/openapi-ts/pull/3255))
+
+### v0.90.0
+
+#### Minor Changes
+
+- **plugin(valibot)**: Standardize `~resolvers` API ([#3147](https://github.com/hey-api/openapi-ts/pull/3147))
+- **plugin(zod)**: Standardize `~resolvers` API ([#3147](https://github.com/hey-api/openapi-ts/pull/3147))
+- **plugin(sdk)**: Structure API ([#3109](https://github.com/hey-api/openapi-ts/pull/3109))
+- **plugin(@angular/common)**: Structure API ([#3109](https://github.com/hey-api/openapi-ts/pull/3109))
+
+  <Note>
+  The Resolvers and Structure APIs provide more consistent behavior across plugins. See the [migration guide](/community/migration-guide#v0-90-0) for details.
+  </Note>
+
+#### Patch Changes
+
+- **clients**: Use serialized body in SSE requests across all clients ([#3171](https://github.com/hey-api/openapi-ts/pull/3171))
+- **plugin(zod)**: Expand support for bigint types ([#3145](https://github.com/hey-api/openapi-ts/pull/3145))
+- **plugin(@hey-api/client-nuxt)**: Preserve null in `WithRefs` type for nullable fields ([#3131](https://github.com/hey-api/openapi-ts/pull/3131))
+- **renderer**: Correctly render default import ([#3109](https://github.com/hey-api/openapi-ts/pull/3109))
+
+## Recent Features
+
+<Accordion title="v0.89.0 - Prefer Named Exports">
+  This release changes the default for `index.ts` to prefer named exports for better IDE and bundler performance.
+  
+  Set `output.preferExportAll` to `true` if you prefer asterisk exports.
+</Accordion>
+
+<Accordion title="v0.88.0 - TypeScript DSL">
+  Introduces a new TypeScript DSL exposed under the `$` symbol. All plugins now use this interface.
+</Accordion>
+
+<Accordion title="v0.87.0 - Removed Legacy Clients">
+  Legacy clients and plugins have been removed. Please migrate to the new clients.
+</Accordion>
+
+<Accordion title="v0.86.0 - Node 20.19.0 Minimum">
+  Bumps minimum Node version to 20.19.0 for better performance and security.
+</Accordion>
+
+<Accordion title="v0.85.0 - Updated Output Options">
+  Output configuration now uses `null` to represent disabled options for consistency.
+</Accordion>
+
+## View Full History
+
+<Card title="Complete Changelog" icon="github" href="https://github.com/hey-api/openapi-ts/blob/main/packages/openapi-ts/CHANGELOG.md">
+  View the complete changelog on GitHub for all historical releases and detailed changes.
+</Card>
+
+## Stay Updated
+
+<CardGroup cols={2}>
+  <Card title="GitHub Releases" icon="github" href="https://github.com/hey-api/openapi-ts/releases">
+    Subscribe to GitHub releases for notifications
+  </Card>
+  <Card title="Migration Guide" icon="book" href="/community/migration-guide">
+    Learn how to migrate between major versions
+  </Card>
+</CardGroup>

@@ -1,0 +1,623 @@
+---
+title: "Fetch Client"
+description: "Native browser Fetch API client with zero dependencies"
+---
+
+The Fetch client is built on the native Fetch API and works in all modern browsers and Node.js environments. It's the default client for OpenAPI TypeScript with zero dependencies.
+
+## Installation
+
+The Fetch client is included in the main `@hey-api/openapi-ts` package. To use it standalone:
+
+<CodeGroup>
+
+```bash npm
+npm install @hey-api/client-fetch
+```
+
+```bash pnpm
+pnpm add @hey-api/client-fetch
+```
+
+```bash yarn
+yarn add @hey-api/client-fetch
+```
+
+```bash bun
+bun add @hey-api/client-fetch
+```
+
+</CodeGroup>
+
+## Basic Usage
+
+<Steps>
+
+<Step title="Create a client instance">
+
+```typescript
+import { createClient } from '@hey-api/client-fetch';
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+});
+```
+
+</Step>
+
+<Step title="Make API calls">
+
+```typescript
+// GET request
+const { data, error } = await client.get({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+
+// POST request
+const { data, error } = await client.post({
+  url: '/users',
+  body: {
+    name: 'John Doe',
+    email: 'john@example.com',
+  },
+});
+```
+
+</Step>
+
+<Step title="Handle responses">
+
+```typescript
+if (error) {
+  console.error('Error:', error);
+} else {
+  console.log('User:', data);
+}
+```
+
+</Step>
+
+</Steps>
+
+## Configuration
+
+The Fetch client supports comprehensive configuration options:
+
+### Client Options
+
+```typescript
+import { createClient } from '@hey-api/client-fetch';
+
+const client = createClient({
+  // Base URL for all requests
+  baseUrl: 'https://api.example.com',
+
+  // Default headers
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key',
+  },
+
+  // Custom fetch implementation
+  fetch: customFetch,
+
+  // Response parsing format
+  parseAs: 'json', // 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData' | 'stream' | 'auto'
+
+  // Response style
+  responseStyle: 'fields', // 'fields' | 'data'
+
+  // Error handling
+  throwOnError: false,
+
+  // Authentication
+  auth: async (auth) => getToken(),
+
+  // Body serialization
+  bodySerializer: JSON.stringify,
+
+  // Query serialization
+  querySerializer: (query) => new URLSearchParams(query).toString(),
+
+  // Request validator
+  requestValidator: async (data) => validateRequest(data),
+
+  // Response transformer
+  responseTransformer: async (data) => transformResponse(data),
+
+  // Response validator
+  responseValidator: async (data) => validateResponse(data),
+
+  // Standard fetch options
+  credentials: 'include',
+  mode: 'cors',
+  cache: 'default',
+  redirect: 'follow',
+  referrer: 'client',
+  referrerPolicy: 'no-referrer',
+  integrity: '',
+  keepalive: false,
+  signal: abortController.signal,
+});
+```
+
+### Runtime Configuration
+
+Update client configuration after creation:
+
+```typescript
+// Get current config
+const config = client.getConfig();
+
+// Update config
+client.setConfig({
+  headers: {
+    'Authorization': 'Bearer new-token',
+  },
+});
+```
+
+## HTTP Methods
+
+The client provides methods for all HTTP verbs:
+
+<Tabs>
+
+<Tab title="GET">
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  query: {
+    page: 1,
+    limit: 10,
+  },
+});
+```
+
+</Tab>
+
+<Tab title="POST">
+
+```typescript
+const { data } = await client.post({
+  url: '/users',
+  body: {
+    name: 'John Doe',
+    email: 'john@example.com',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="PUT">
+
+```typescript
+const { data } = await client.put({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    name: 'Jane Doe',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="PATCH">
+
+```typescript
+const { data } = await client.patch({
+  url: '/users/{id}',
+  path: { id: 123 },
+  body: {
+    email: 'jane@example.com',
+  },
+});
+```
+
+</Tab>
+
+<Tab title="DELETE">
+
+```typescript
+const { data } = await client.delete({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+```
+
+</Tab>
+
+<Tab title="HEAD">
+
+```typescript
+const { response } = await client.head({
+  url: '/users/{id}',
+  path: { id: 123 },
+});
+
+console.log('Content-Type:', response.headers.get('Content-Type'));
+```
+
+</Tab>
+
+<Tab title="OPTIONS">
+
+```typescript
+const { response } = await client.options({
+  url: '/users',
+});
+
+console.log('Allowed methods:', response.headers.get('Allow'));
+```
+
+</Tab>
+
+</Tabs>
+
+## Authentication
+
+The Fetch client supports multiple authentication schemes:
+
+### Bearer Token
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: 'your-token', // Simple token
+});
+
+// Or with a function
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'bearer') {
+      return await getAccessToken();
+    }
+  },
+});
+```
+
+### Basic Authentication
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.scheme === 'basic') {
+      // Return base64 encoded credentials
+      return btoa('username:password');
+    }
+  },
+});
+```
+
+### API Key
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  auth: async (auth) => {
+    if (auth.type === 'apiKey') {
+      return 'your-api-key';
+    }
+  },
+});
+
+// Per-request authentication
+const { data } = await client.get({
+  url: '/users',
+  security: [
+    {
+      type: 'apiKey',
+      in: 'header',
+      name: 'X-API-Key',
+    },
+  ],
+});
+```
+
+## Interceptors
+
+Add request, response, and error interceptors:
+
+### Request Interceptor
+
+```typescript
+client.interceptors.request.use((request, options) => {
+  // Modify request before sending
+  console.log('Sending request to:', request.url);
+  
+  // Add custom header
+  request.headers.set('X-Request-ID', generateRequestId());
+  
+  return request;
+});
+```
+
+### Response Interceptor
+
+```typescript
+client.interceptors.response.use((response, request, options) => {
+  // Process response
+  console.log('Received response:', response.status);
+  
+  // Log response time
+  const responseTime = response.headers.get('X-Response-Time');
+  console.log('Response time:', responseTime);
+  
+  return response;
+});
+```
+
+### Error Interceptor
+
+```typescript
+client.interceptors.error.use((error, response, request, options) => {
+  // Handle errors
+  console.error('Request failed:', error);
+  
+  // Transform error
+  if (response?.status === 401) {
+    return { message: 'Unauthorized', code: 'AUTH_ERROR' };
+  }
+  
+  return error;
+});
+```
+
+## Response Parsing
+
+Control how responses are parsed:
+
+### Auto (Default)
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  parseAs: 'auto', // Infers from Content-Type header
+});
+```
+
+### JSON
+
+```typescript
+const { data } = await client.get({
+  url: '/users',
+  parseAs: 'json',
+});
+```
+
+### Text
+
+```typescript
+const { data } = await client.get({
+  url: '/document',
+  parseAs: 'text',
+});
+```
+
+### Blob
+
+```typescript
+const { data } = await client.get({
+  url: '/image.png',
+  parseAs: 'blob',
+});
+```
+
+### Stream
+
+```typescript
+const { data } = await client.get({
+  url: '/large-file',
+  parseAs: 'stream',
+});
+
+// data is ReadableStream
+const reader = data.getReader();
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  console.log('Chunk:', value);
+}
+```
+
+## Server-Sent Events
+
+Stream real-time data with Server-Sent Events:
+
+```typescript
+const stream = await client.sse.get({
+  url: '/events',
+  onSseEvent: (event) => {
+    console.log('Event:', event.data);
+  },
+  onSseError: (error) => {
+    console.error('Stream error:', error);
+  },
+  sseMaxRetryAttempts: 3,
+  sseMaxRetryDelay: 5000,
+  sseDefaultRetryDelay: 1000,
+});
+
+// Close the stream
+stream.close();
+```
+
+## Body Serialization
+
+Customize how request bodies are serialized:
+
+### JSON (Default)
+
+```typescript
+import { jsonBodySerializer } from '@hey-api/client-fetch';
+
+const client = createClient({
+  bodySerializer: jsonBodySerializer.bodySerializer,
+});
+```
+
+### FormData
+
+```typescript
+import { formDataBodySerializer } from '@hey-api/client-fetch';
+
+const client = createClient({
+  bodySerializer: formDataBodySerializer.bodySerializer,
+});
+
+const { data } = await client.post({
+  url: '/upload',
+  body: {
+    file: fileBlob,
+    name: 'document.pdf',
+  },
+});
+```
+
+### URL Encoded
+
+```typescript
+import { urlSearchParamsBodySerializer } from '@hey-api/client-fetch';
+
+const client = createClient({
+  bodySerializer: urlSearchParamsBodySerializer.bodySerializer,
+});
+```
+
+## Query Serialization
+
+Customize query parameter serialization:
+
+```typescript
+const client = createClient({
+  querySerializer: {
+    // Array serialization
+    array: {
+      style: 'form', // 'form' | 'spaceDelimited' | 'pipeDelimited'
+      explode: true,
+    },
+    // Object serialization
+    object: {
+      style: 'deepObject', // 'form' | 'deepObject'
+      explode: true,
+    },
+    // Allow reserved characters
+    allowReserved: false,
+  },
+});
+```
+
+## Advanced Examples
+
+### Custom Fetch Implementation
+
+```typescript
+import { createClient } from '@hey-api/client-fetch';
+import nodeFetch from 'node-fetch';
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  fetch: nodeFetch as any,
+});
+```
+
+### Request Cancellation
+
+```typescript
+const controller = new AbortController();
+
+const promise = client.get({
+  url: '/users',
+  signal: controller.signal,
+});
+
+// Cancel the request
+controller.abort();
+```
+
+### Response Validation
+
+```typescript
+import { z } from 'zod';
+
+const UserSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.string().email(),
+});
+
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  responseValidator: async (data) => {
+    UserSchema.parse(data);
+  },
+});
+```
+
+### Response Transformation
+
+```typescript
+const client = createClient({
+  baseUrl: 'https://api.example.com',
+  responseTransformer: async (data) => {
+    // Transform ISO date strings to Date objects
+    if (data.createdAt) {
+      data.createdAt = new Date(data.createdAt);
+    }
+    return data;
+  },
+});
+```
+
+## TypeScript Types
+
+Import client types for advanced usage:
+
+```typescript
+import type {
+  Client,
+  Config,
+  RequestOptions,
+  RequestResult,
+  ResponseStyle,
+} from '@hey-api/client-fetch';
+
+// Custom client wrapper
+function createApiClient(config: Config): Client {
+  return createClient({
+    ...config,
+    headers: {
+      'X-Custom-Header': 'value',
+      ...config.headers,
+    },
+  });
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Axios Client" icon="arrow-right-arrow-left" href="/clients/axios">
+  Advanced features with Axios
+</Card>
+
+<Card title="Authentication" icon="lock" href="/clients/fetch#authentication">
+  Set up API authentication
+</Card>
+
+<Card title="Interceptors" icon="filter" href="/clients/fetch#interceptors">
+  Add request/response interceptors
+</Card>
+
+<Card title="Error Handling" icon="triangle-exclamation" href="/clients/overview#error-handling">
+  Handle errors effectively
+</Card>
+
+</CardGroup>
